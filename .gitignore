@@ -1,0 +1,82 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Bb]in/
+[Oo]bj/
+out/
+
+# NuGet
+*.nupkg
+# NuGet packages folder
+packages/
+.nuget/
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Rider
+.idea/
+*.sln.iml
+
+# Logs
+*.log
+
+# OS generated
+.DS_Store
+Thumbs.db
+
+# Dotnet publish
+publish/
+
+# Tools
+.toolstarget
+
+# Resharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+
+# JetBrains Rider
+.idea/
+
+# Azure DevOps
+*.vspscc
+
+# Temporary files
+*.tmp
+*.temp
+
+# Test result files
+TestResults/
+*.trx
+
+# Visual Studio profiler
+*.psess
+*.vsp
+*.vspx
+
+# SQL Server files
+*.mdf
+*.ldf
+
+# IIS Express
+# IIS Express applicationhost config
+/.vs/config/ 
+
+# EF Core
+dbcontextscaffolded
+
+# Coverage
+coverage*/
+coverage*.xml
+
+# npm
+node_modules/
+
+# Yarn
+.yarn/

@@ -1,0 +1,87 @@
+Contracts and Validation Rules
+
+Overview
+
+
+
+1) TakeoffAction — a single change operation
+- Fields:
+  - ActionName : string — operation name (create, update, delete).
+  - EntityType : string — target entity type (Quantity or Measurement).
+  - OrderNumber : integer — position / execution order within an action list.
+  - Measurement : Measurement — measurement payload (when EntityType is Measurement).
+  - Quantity : Quantity — quantity payload (when EntityType is Quantity).
+- Business validation:
+  - ActionName must be one of: create, update, delete.
+  - EntityType must be one of: Quantity, Measurement.
+  - OrderNumber must be non-negative for a single action; when validating an action list it must be >= 1, unique across the list and form a contiguous sequence 1..N.
+  - If Measurement is present it must satisfy Measurement rules.
+  - If Quantity is present it must satisfy Quantity rules.
+
+2) Quantity — measurable quantity entry
+- Fields:
+  - Id : GUID — unique identifier for the quantity.
+  - Name : string — business name/label for the quantity.
+  - Uom : string — unit of measure abbreviation (lf, sf, ea).
+  - ConditionId : GUID — identifier of the condition/context this quantity belongs to.
+  - Value : double — numeric measure for the quantity.
+- Business validation:
+  - Name is required (non-empty).
+  - Uom is required (non-empty) and expected to be one of the domain UOMs.
+  - ConditionId must be present (non-empty GUID).
+  - Value is a numeric measure (validator enforces non-negative in measurements; for quantities generation uses non-negative values).
+  - List-level constraints:
+    - No more than 3 quantities may share the same ConditionId.
+    - Quantities that share the same ConditionId must have distinct names (case-insensitive, trimmed).
+
+3) Measurement — measurement attached to a condition
+- Fields:
+  - MeasurementType : string — semantic type (Length, Area, Perimeter, Count).
+  - ConditionType : string — condition semantic (Linear, Area, Count).
+  - Uom : string — unit of measure (lf, sf, ea).
+  - ConditionId : GUID — identifier of the condition/context this measurement belongs to.
+  - Value : double — numeric measurement value.
+- Business validation (field-level and relational):
+  - MeasurementType must be one of: Length, Area, Perimeter, Count.
+  - ConditionType must be one of: Linear, Area, Count.
+  - Uom must be one of: lf, sf, ea.
+  - ConditionId must be present (non-empty GUID).
+  - Value must be non-negative.
+  - Relation rules between ConditionType and MeasurementType:
+    - ConditionType = Linear -> MeasurementType must be Length.
+    - ConditionType = Area -> MeasurementType must be Area or Perimeter.
+    - ConditionType = Count -> MeasurementType must be Count.
+  - Relation rules for UOM (preferred mapping):
+    - Length or Perimeter -> lf
+    - Area -> sf
+    - Count -> ea
+    
+- Group-level rules (per ConditionId):
+  - All measurements sharing the same ConditionId must use the same ConditionType (no mixed condition types per ConditionId).
+  - If ConditionType is Linear or Count then that ConditionId may have at most one measurement.
+  - If ConditionType is Area then that ConditionId may have up to two measurements; if two measurements exist they must have different MeasurementType values (no duplicate measurement types for the same ConditionId).
+
+4) TakeoffActionsList — ordered actions within a project context
+- Fields:
+  - ProjectId : GUID — identifier of the project.
+  - Actions : list of TakeoffAction — ordered operations to apply.
+- Business validation:
+  - Actions list must be present (non-null).
+  - Actions list must pass action-level validation (each action valid).
+  - OrderNumber rules across the list: numbers must be >= 1, unique, and form a contiguous 1..N sequence.
+  - When quantities and measurements are extracted from the actions (by EntityType), both extracted lists must be valid according to Quantity and Measurement rules and list-level constraints.
+
+5) TakeoffState — current state snapshot
+- Fields:
+  - Quantities : list of Quantity — current quantity records.
+  - Measurements : list of Measurement — current measurement records.
+- Business validation:
+  - Quantities list must validate according to Quantity rules and list-level constraints.
+  - Measurements list must validate according to Measurement rules and group-level constraints.
+
+Intent and Notes
+- The validator enforces both per-entity correctness (required fields, allowed enumerations, UOM semantics) and group-level business constraints that ensure consistent semantic usage per ConditionId.
+- UOM selection in generation logic follows the same mapping used by validation rules; validation enforces that UOMs match those semantic expectations.
+- Order numbers are validated at the actions-list level to ensure processing order is explicit and well-formed.
+
+Use this file as a concise reference of domain contracts and business validation rules for reviewers, test authors, and stakeholders.
