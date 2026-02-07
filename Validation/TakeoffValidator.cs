@@ -117,6 +117,16 @@ namespace Validation
                 result.Errors.Add("ConditionId is required");
             }
 
+            // If UOM indicates integer (each - 'ea'), the Value must be an integer
+            if (!string.IsNullOrWhiteSpace(quantity.Uom) && string.Equals(quantity.Uom, UOM_EA, StringComparison.OrdinalIgnoreCase))
+            {
+                if (quantity.Value % 1 != 0)
+                {
+                    result.IsValid = false;
+                    result.Errors.Add("For UOM 'ea' the Value must be an integer");
+                }
+            }
+
             return result;
         }
 
@@ -167,6 +177,17 @@ namespace Validation
             {
                 result.IsValid = false;
                 result.Errors.Add("Value must be non-negative");
+            }
+
+            // New rule: if measurement type is Count, value must be an integer (no tolerance)
+            if (!string.IsNullOrWhiteSpace(measurement.MeasurementType) &&
+                string.Equals(measurement.MeasurementType, MT_COUNT, StringComparison.OrdinalIgnoreCase))
+            {
+                if (measurement.Value % 1 != 0)
+                {
+                    result.IsValid = false;
+                    result.Errors.Add("For measurement type 'Count' the Value must be an integer");
+                }
             }
 
             if (string.IsNullOrWhiteSpace(measurement.ConditionType))
@@ -224,8 +245,7 @@ namespace Validation
                             $"Uom '{measurement.Uom}' does not match expected '{expectedUomByMeasurement}' for measurement type '{measurement.MeasurementType}'");
                     }
                 }
-                else if (!string.IsNullOrWhiteSpace(measurement.ConditionType) &&
-                         ConditionToUom.TryGetValue(measurement.ConditionType, out var expectedUomByCondition))
+                else if (!string.IsNullOrWhiteSpace(measurement.ConditionType) && ConditionToUom.TryGetValue(measurement.ConditionType, out var expectedUomByCondition))
                 {
                     if (!string.Equals(measurement.Uom, expectedUomByCondition, StringComparison.OrdinalIgnoreCase))
                     {
@@ -412,6 +432,23 @@ namespace Validation
             {
                 result.IsValid = false;
                 result.Errors.AddRange(quantitiesResult.Errors.Select(e => $"Quantities: {e}"));
+            }
+
+            // Check that Quantity.Id values are unique (ignore empty Guid)
+            if (state.Quantities != null)
+            {
+                var idDuplicates = state.Quantities
+                    .Where(q => q != null && q.Id != Guid.Empty)
+                    .GroupBy(q => q.Id)
+                    .Select(g => new { Id = g.Key, Count = g.Count() })
+                    .Where(x => x.Count > 1)
+                    .ToList();
+
+                foreach (var d in idDuplicates)
+                {
+                    result.IsValid = false;
+                    result.Errors.Add($"Quantity Id {d.Id} is used by {d.Count} quantities; ids must be unique");
+                }
             }
 
             var measurementsResult = ValidateListOfMeasurements(state.Measurements);
