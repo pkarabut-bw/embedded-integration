@@ -1,0 +1,43 @@
+Takeoff / Estimator Interaction
+
+Overview
+
+High-level business flows between Takeoff and Estimator (backend-only, storage/tech details omitted).
+
+- Initial sync
+  - Estimator requests the current takeoff snapshot from Takeoff to obtain the baseline of quantities and measurements.
+
+- Record user intent (Takeoff)
+  - Users make changes in Takeoff; those changes are captured as a validated, ordered list of actions (create/update/delete) that describe business intent.
+
+- Push changes (Takeoff ? Estimator)
+  - Takeoff sends the ordered list of actions to Estimator as a single unit representing the user’s set of changes.
+  
+- Apply actions (Estimator)
+  - Estimator consumes the ordered actions and applies their business semantics to its current domain model (create, update, delete of quantities and measurements).
+  - Actions are applied in order so derived outcomes (e.g., updates referring to created items) are consistent.
+
+Endpoint details
+
+1) Takeoff.GetQuantities
+- Method: GET
+- Path: /Takeoff/GetQuantities
+- Purpose: Provide a snapshot of the current takeoff business state.
+- Response: a TakeoffState object containing lists of quantities and measurements representing the authoritative snapshot.
+- Business expectations:
+  - Consumers use the snapshot as a baseline for reconciliation or initialization.
+  - The snapshot is authoritative at the moment it is returned; concurrent user actions after the snapshot may create divergence until an action push synchronizes state.
+
+2) Estimator.PostQuantities
+- Method: POST
+- Path: /Quantities/PostQuantities
+- Purpose: Accept a validated, ordered list of business actions (TakeoffActionsList) representing user intent and apply them.
+- Request body: TakeoffActionsList (ordered sequence of TakeoffAction entries). Each action contains ActionName (create/update/delete), EntityType (Quantity/Measurement), OrderNumber, and the entity payload.
+- Business semantics:
+  - Actions are applied in OrderNumber order to ensure a consistent single business transaction.
+  - The Estimator interprets and executes each action according to business rules (create adds, update modifies or adds if absent, delete removes if present).
+  - The request is treated as an atomic business handoff: success indicates the entire sequence was accepted and applied; failure indicates the sequence was not accepted as authoritative.
+
+
+
+
