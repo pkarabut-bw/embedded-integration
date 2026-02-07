@@ -41,6 +41,15 @@ namespace Takeoff.StateManagement
             }
         }
 
+        // Clear recorded actions
+        public void ClearActions()
+        {
+            lock (_lock)
+            {
+                _actionsList.Actions.Clear();
+            }
+        }
+
         // helper to record an action. Returns validation result; does not throw on validation failures.
         private ValidationResult RecordAction(string actionName, string entityType, Quantity quantity = null, Measurement measurement = null)
         {

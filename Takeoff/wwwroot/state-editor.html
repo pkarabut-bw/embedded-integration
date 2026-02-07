@@ -35,7 +35,7 @@
 <body>
   <div class="header" style="margin-bottom:7px">
     <h1>Takeoff State Editor</h1>
-    <button id="reset">Reset to Default</button>
+    <button id="reset" style="display:none">Reset to Default</button>
   </div>
 
   <div class="tabs" style="margin-bottom:50px">
@@ -451,6 +451,9 @@
       const res = await fetch('/State/sendToEstimator', { method: 'POST' });
       if (!res.ok) { const txt = await res.text(); showError(txt); return; }
       alert('Changes sent to Estimator');
+      // refresh actions and state so the Changes tab clears automatically
+      await renderActions();
+      await render();
     });
 
     render();

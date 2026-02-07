@@ -29,10 +29,15 @@ namespace Estimator.Controllers
         [HttpPost]
         public IActionResult PostQuantities([FromBody] TakeoffActionsList actionsList)
         {
-            // Sort actions by OrderNumber
-            var sortedActions = actionsList.Actions.OrderBy(action => action.OrderNumber);
+            if (actionsList == null || actionsList.Actions == null) return BadRequest("actions list is null");
 
-            // Save information about quantities and measurements
+            // Sort actions by OrderNumber
+            var sortedActions = actionsList.Actions.OrderBy(action => action.OrderNumber).ToList();
+
+            // Apply actions to in-memory state
+            _service.ApplyActions(sortedActions);
+
+            // Save information about quantities and measurements (logging)
             foreach (var action in sortedActions)
             {
                 if (string.Equals(action.EntityType, EntityTypeQuantity, StringComparison.OrdinalIgnoreCase) && action.Quantity != null)
@@ -58,6 +63,14 @@ namespace Estimator.Controllers
             var state = _service.GetState();
             if (state == null) return NotFound();
             return Ok(state);
+        }
+
+        // Poll endpoint for viewers to check whether state was updated; returns and clears flag
+        [HttpGet]
+        public ActionResult<bool> NeedUpdate()
+        {
+            var val = _service.GetAndClearNeedUpdate();
+            return Ok(val);
         }
 
         // Serve a minimal static viewer page

@@ -56,6 +56,10 @@ namespace Takeoff.Controllers
                     var txt = await res.Content.ReadAsStringAsync();
                     return StatusCode((int)res.StatusCode, txt);
                 }
+
+                // Clear recorded actions after successful send
+                _service.ClearActions();
+
                 return Ok();
             }
             catch (Exception ex)
