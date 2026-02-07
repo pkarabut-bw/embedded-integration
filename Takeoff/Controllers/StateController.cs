@@ -1,5 +1,9 @@
 using System;
+using System.Net.Http;
+using System.Net.Http.Json;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Takeoff.StateManagement;
 using Contracts;
 using Validation;
@@ -11,10 +15,14 @@ namespace Takeoff.Controllers
     public class StateController : ControllerBase
     {
         private readonly StateService _service;
+        private readonly IHttpClientFactory _clientFactory;
+        private readonly string _estimatorBaseUrl;
 
-        public StateController(StateService service)
+        public StateController(StateService service, IHttpClientFactory clientFactory, IConfiguration config)
         {
             _service = service;
+            _clientFactory = clientFactory;
+            _estimatorBaseUrl = config["Estimator:BaseUrl"] ?? string.Empty;
         }
 
         [HttpGet]
@@ -29,6 +37,31 @@ namespace Takeoff.Controllers
         {
             var actions = _service.GetActionsList();
             return Ok(actions);
+        }
+
+        [HttpPost("sendToEstimator")]
+        public async Task<ActionResult> SendToEstimator()
+        {
+            if (string.IsNullOrWhiteSpace(_estimatorBaseUrl)) return BadRequest("Estimator base URL is not configured");
+            var actions = _service.GetActionsList();
+            if (actions == null) return BadRequest("No actions to send");
+
+            var client = _clientFactory.CreateClient();
+            try
+            {
+                client.BaseAddress = new Uri(_estimatorBaseUrl);
+                var res = await client.PostAsJsonAsync("/Quantities/PostQuantities", actions);
+                if (!res.IsSuccessStatusCode)
+                {
+                    var txt = await res.Content.ReadAsStringAsync();
+                    return StatusCode((int)res.StatusCode, txt);
+                }
+                return Ok();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
         }
 
         [HttpPost("quantities")]

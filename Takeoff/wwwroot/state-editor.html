@@ -62,6 +62,7 @@
 
   <div id="changesTab" class="tab">
     <div class="section-header"><h2 style="margin:0">Changes</h2></div>
+    <div style="margin-bottom:8px"><button id="sendToEstimator">Send changes to Estimator</button></div>
     <table id="changesTable">
       <thead><tr><th>Order</th><th>Action</th><th>Entity</th><th>QuantityId</th><th>MeasurementType</th><th>Details</th></tr></thead>
       <tbody></tbody>
@@ -443,6 +444,13 @@
       quantTab.classList.remove('active');
       measTab.classList.remove('active');
       await renderActions();
+    });
+
+    document.getElementById('sendToEstimator').addEventListener('click', async () => {
+      if (!confirm('Send current changes to Estimator?')) return;
+      const res = await fetch('/State/sendToEstimator', { method: 'POST' });
+      if (!res.ok) { const txt = await res.text(); showError(txt); return; }
+      alert('Changes sent to Estimator');
     });
 
     render();

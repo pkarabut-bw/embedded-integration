@@ -3,6 +3,7 @@ using System.Linq;
 using Contracts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
+using Estimator.StateManagement;
 
 namespace Estimator.Controllers
 {
@@ -11,6 +12,7 @@ namespace Estimator.Controllers
     public class QuantitiesController : ControllerBase
     {
         private readonly ILogger<QuantitiesController> _logger;
+        private readonly StateService _service;
 
         private const string EntityTypeQuantity = "Quantity";
         private const string EntityTypeMeasurement = "Measurement";
@@ -18,9 +20,10 @@ namespace Estimator.Controllers
         private const string ActionUpdate = "update";
         private const string ActionDelete = "delete";
 
-        public QuantitiesController(ILogger<QuantitiesController> logger)
+        public QuantitiesController(ILogger<QuantitiesController> logger, StateService service)
         {
             _logger = logger;
+            _service = service;
         }
 
         [HttpPost]
@@ -46,6 +49,22 @@ namespace Estimator.Controllers
             }
 
             return Ok(new { Message = "Quantities and measurements processed successfully!" });
+        }
+
+        // Provide a read-only endpoint returning the current TakeoffState stored in this service
+        [HttpGet]
+        public ActionResult<TakeoffState> GetState()
+        {
+            var state = _service.GetState();
+            if (state == null) return NotFound();
+            return Ok(state);
+        }
+
+        // Serve a minimal static viewer page
+        [HttpGet]
+        public ActionResult Viewer()
+        {
+            return PhysicalFile("wwwroot/state-viewer.html", "text/html");
         }
 
         private void HandleQuantityAction(TakeoffAction action)

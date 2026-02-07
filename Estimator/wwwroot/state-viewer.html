@@ -1,0 +1,43 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Estimator: Takeoff State Viewer</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    th { background: #eee; }
+  </style>
+</head>
+<body>
+  <h1>Takeoff State (read-only)</h1>
+  <div>
+    <button id="refresh">Refresh</button>
+  </div>
+  <h2>Quantities</h2>
+  <table id="quantTable"><thead><tr><th>Id</th><th>Name</th><th>Uom</th><th>ConditionId</th><th>Value</th></tr></thead><tbody></tbody></table>
+  <h2>Measurements</h2>
+  <table id="measTable"><thead><tr><th>Index</th><th>MeasurementType</th><th>ConditionType</th><th>Uom</th><th>ConditionId</th><th>Value</th></tr></thead><tbody></tbody></table>
+
+  <script>
+    async function fetchState() {
+      const res = await fetch('/Quantities/GetState');
+      return res.ok ? await res.json() : null;
+    }
+    function cell(text){ const td = document.createElement('td'); td.textContent = text; return td; }
+    async function render(){
+      const state = await fetchState();
+      const qBody = document.querySelector('#quantTable tbody'); qBody.innerHTML='';
+      const mBody = document.querySelector('#measTable tbody'); mBody.innerHTML='';
+      if (!state) return;
+      const quantities = state.quantities || state.Quantities || [];
+      const measurements = state.measurements || state.Measurements || [];
+      quantities.forEach(q => { const tr = document.createElement('tr'); tr.appendChild(cell(q.id||q.Id)); tr.appendChild(cell(q.name||q.Name)); tr.appendChild(cell(q.uom||q.Uom)); tr.appendChild(cell(q.conditionId||q.ConditionId)); tr.appendChild(cell(q.value||q.Value)); qBody.appendChild(tr); });
+      measurements.forEach((m,idx)=>{ const tr=document.createElement('tr'); tr.appendChild(cell(idx)); tr.appendChild(cell(m.measurementType||m.MeasurementType)); tr.appendChild(cell(m.conditionType||m.ConditionType)); tr.appendChild(cell(m.uom||m.Uom)); tr.appendChild(cell(m.conditionId||m.ConditionId)); tr.appendChild(cell(m.value||m.Value)); mBody.appendChild(tr); });
+    }
+    document.getElementById('refresh').addEventListener('click', render);
+    render();
+  </script>
+</body>
+</html>

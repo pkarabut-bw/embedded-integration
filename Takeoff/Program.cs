@@ -12,6 +12,9 @@ builder.Services.AddControllers();
 // Register StateService as singleton
 builder.Services.AddSingleton<StateService>();
 
+// Register IHttpClientFactory for outbound HTTP calls (used by StateController)
+builder.Services.AddHttpClient();
+
 // Allow simple CORS for frontend development
 builder.Services.AddCors(options =>
 {
