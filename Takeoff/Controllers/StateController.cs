@@ -1,3 +1,4 @@
+using System;
 using Microsoft.AspNetCore.Mvc;
 using Takeoff.StateManagement;
 using Contracts;
@@ -80,6 +81,13 @@ namespace Takeoff.Controllers
         {
             var state = _service.ResetToDefault();
             return Ok(state);
+        }
+
+        // Generate a new ConditionId (GUID) for the client to use when creating quantities or measurements
+        [HttpGet("condition/new")]
+        public ActionResult<Guid> NewConditionId()
+        {
+            return Ok(Guid.NewGuid());
         }
     }
 }
