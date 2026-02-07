@@ -1,0 +1,188 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Takeoff State Editor</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    .header { display: flex; align-items: center; justify-content: flex-start; gap: 12px; }
+    .tabs { margin-bottom: 12px; }
+    .tab-btn { padding: 8px 12px; margin-right: 6px; cursor: pointer; border: 1px solid #ccc; background: #f7f7f7; }
+    .tab-btn.active { background: #e0e0e0; }
+    .tab { display: none; }
+    .tab.active { display: block; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; }
+    th { background: #eee; }
+    input[type="text"], input[type="number"] { width: 100%; }
+    .controls { margin-top: 10px; }
+    button { margin-right: 8px; }
+    .section-header { display:flex; align-items:center; justify-content:flex-start; gap:8px; margin-bottom:8px; }
+  </style>
+</head>
+<body>
+  <div class="header" style="margin-bottom:7px">
+    <h1>Takeoff State Editor</h1>
+    <button id="reset">Reset to Default</button>
+  </div>
+
+  <div class="tabs" style="margin-bottom:50px">
+    <button id="tabQuant" class="tab-btn active">Quantities</button>
+    <button id="tabMeas" class="tab-btn">Measurements</button>
+  </div>
+
+  <div id="quantTab" class="tab active">
+    <div class="section-header"><h2 style="margin:0">Quantities</h2><button id="addQty">Add Quantity</button></div>
+    <table id="quantTable">
+      <thead><tr><th>Id</th><th>Name</th><th>Uom</th><th>ConditionId</th><th>Value</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="measTab" class="tab">
+    <div class="section-header"><h2 style="margin:0">Measurements</h2><button id="addMeas">Add Measurement</button></div>
+    <table id="measTable">
+      <thead><tr><th>Index</th><th>MeasurementType</th><th>ConditionType</th><th>Uom</th><th>ConditionId</th><th>Value</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <script>
+    async function fetchState() {
+      const res = await fetch('/State');
+      return res.ok ? await res.json() : null;
+    }
+
+    function rowCell(text) { const td = document.createElement('td'); td.textContent = text; return td; }
+
+    async function render() {
+      const state = await fetchState();
+      const qBody = document.querySelector('#quantTable tbody'); qBody.innerHTML = '';
+      const mBody = document.querySelector('#measTable tbody'); mBody.innerHTML = '';
+      if (!state) return;
+
+      const quantities = state.quantities || state.Quantities || [];
+      const measurements = state.measurements || state.Measurements || [];
+
+      quantities.forEach(q => {
+        const tr = document.createElement('tr');
+        tr.appendChild(rowCell(q.id || q.Id));
+        tr.appendChild(rowCell(q.name || q.Name));
+        tr.appendChild(rowCell(q.uom || q.Uom));
+        tr.appendChild(rowCell(q.conditionId || q.ConditionId));
+        tr.appendChild(rowCell(q.value || q.Value));
+        const actions = document.createElement('td');
+        const edit = document.createElement('button'); edit.textContent = 'Edit'; edit.onclick = () => editQuantity(q);
+        const del = document.createElement('button'); del.textContent = 'Delete'; del.onclick = () => deleteQuantity(q.id || q.Id);
+        actions.appendChild(edit); actions.appendChild(del);
+        tr.appendChild(actions);
+        qBody.appendChild(tr);
+      });
+
+      measurements.forEach((m, idx) => {
+        const tr = document.createElement('tr');
+        tr.appendChild(rowCell(idx));
+        tr.appendChild(rowCell(m.measurementType || m.MeasurementType));
+        tr.appendChild(rowCell(m.conditionType || m.ConditionType));
+        tr.appendChild(rowCell(m.uom || m.Uom));
+        tr.appendChild(rowCell(m.conditionId || m.ConditionId));
+        tr.appendChild(rowCell(m.value || m.Value));
+        const actions = document.createElement('td');
+        const edit = document.createElement('button'); edit.textContent = 'Edit'; edit.onclick = () => editMeasurement(idx, m);
+        const del = document.createElement('button'); del.textContent = 'Delete'; del.onclick = () => deleteMeasurement(idx);
+        actions.appendChild(edit); actions.appendChild(del);
+        tr.appendChild(actions);
+        mBody.appendChild(tr);
+      });
+    }
+
+    async function addQuantity() {
+      const q = {
+        Id: crypto.randomUUID(),
+        Name: prompt('Name', 'Length'),
+        Uom: prompt('Uom', 'lf'),
+        ConditionId: prompt('ConditionId (GUID)') || crypto.randomUUID(),
+        Value: parseFloat(prompt('Value', '0'))
+      };
+      const res = await fetch('/State/quantities', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(q) });
+      if (!res.ok) { const txt = await res.text(); alert('Failed: ' + txt); }
+      await render();
+    }
+
+    async function editQuantity(q) {
+      const copy = { ...q };
+      copy.Name = prompt('Name', copy.Name) || copy.Name;
+      copy.Uom = prompt('Uom', copy.Uom) || copy.Uom;
+      copy.ConditionId = prompt('ConditionId', copy.ConditionId) || copy.ConditionId;
+      copy.Value = parseFloat(prompt('Value', copy.Value));
+      const res = await fetch('/State/quantities', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(copy) });
+      if (!res.ok) { const txt = await res.text(); alert('Failed: ' + txt); }
+      await render();
+    }
+
+    async function deleteQuantity(id) {
+      if (!confirm('Delete quantity?')) return;
+      const res = await fetch('/State/quantities/' + id, { method: 'DELETE' });
+      if (!res.ok) { const txt = await res.text(); alert('Failed: ' + txt); }
+      await render();
+    }
+
+    async function addMeasurement() {
+      const m = {
+        MeasurementType: prompt('MeasurementType', 'Area'),
+        ConditionType: prompt('ConditionType', 'Area'),
+        Uom: prompt('Uom', 'sf'),
+        ConditionId: prompt('ConditionId (GUID)') || crypto.randomUUID(),
+        Value: parseFloat(prompt('Value', '0'))
+      };
+      const res = await fetch('/State/measurements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(m) });
+      if (!res.ok) { const txt = await res.text(); alert('Failed: ' + txt); }
+      await render();
+    }
+
+    async function editMeasurement(idx, m) {
+      const copy = { ...m };
+      copy.MeasurementType = prompt('MeasurementType', copy.MeasurementType) || copy.MeasurementType;
+      copy.ConditionType = prompt('ConditionType', copy.ConditionType) || copy.ConditionType;
+      copy.Uom = prompt('Uom', copy.Uom) || copy.Uom;
+      copy.ConditionId = prompt('ConditionId', copy.ConditionId) || copy.ConditionId;
+      copy.Value = parseFloat(prompt('Value', copy.Value));
+      const res = await fetch('/State/measurements/' + idx, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(copy) });
+      if (!res.ok) { const txt = await res.text(); alert('Failed: ' + txt); }
+      await render();
+    }
+
+    async function deleteMeasurement(idx) {
+      if (!confirm('Delete measurement?')) return;
+      const res = await fetch('/State/measurements/' + idx, { method: 'DELETE' });
+      if (!res.ok) { const txt = await res.text(); alert('Failed: ' + txt); }
+      await render();
+    }
+
+    document.getElementById('addQty').addEventListener('click', addQuantity);
+    document.getElementById('addMeas').addEventListener('click', addMeasurement);
+    document.getElementById('reset').addEventListener('click', async () => { await fetch('/State/reset', { method: 'POST' }); await render(); });
+
+    // Tabs handling
+    const tabQuant = document.getElementById('tabQuant');
+    const tabMeas = document.getElementById('tabMeas');
+    const quantTab = document.getElementById('quantTab');
+    const measTab = document.getElementById('measTab');
+
+    tabQuant.addEventListener('click', () => {
+      tabQuant.classList.add('active');
+      tabMeas.classList.remove('active');
+      quantTab.classList.add('active');
+      measTab.classList.remove('active');
+    });
+    tabMeas.addEventListener('click', () => {
+      tabMeas.classList.add('active');
+      tabQuant.classList.remove('active');
+      measTab.classList.add('active');
+      quantTab.classList.remove('active');
+    });
+
+    render();
+  </script>
+</body>
+</html>

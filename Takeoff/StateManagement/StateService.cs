@@ -7,7 +7,188 @@ namespace Takeoff.StateManagement
     public class StateService
     {
         private readonly TakeoffValidator _validator = new TakeoffValidator();
+        private readonly object _lock = new object();
+        private TakeoffState _state;
 
+        public StateService()
+        {
+            // Initialize in-memory state at construction time
+            _state = GetDefaultTakeoffState();
+        }
+
+        // Return the current state (not a deep copy)
+        public TakeoffState GetState()
+        {
+            lock (_lock)
+            {
+                return _state;
+            }
+        }
+
+        // Try to replace the in-memory state; returns validation result (and does not set if invalid)
+        public ValidationResult TrySetState(TakeoffState newState)
+        {
+            var validation = _validator.ValidateTakeoffState(newState);
+            if (!validation.IsValid)
+            {
+                return validation;
+            }
+
+            lock (_lock)
+            {
+                _state = newState;
+            }
+
+            return validation;
+        }
+
+        // Reset to generated default state
+        public TakeoffState ResetToDefault()
+        {
+            var defaultState = GetDefaultTakeoffState();
+            lock (_lock)
+            {
+                _state = defaultState;
+            }
+
+            return _state;
+        }
+
+        // Clear the state (empty lists)
+        public void ClearState()
+        {
+            lock (_lock)
+            {
+                _state = new TakeoffState
+                {
+                    Quantities = new System.Collections.Generic.List<Quantity>(),
+                    Measurements = new System.Collections.Generic.List<Measurement>()
+                };
+            }
+        }
+
+        // Add a quantity to the in-memory state
+        public ValidationResult AddQuantity(Quantity quantity)
+        {
+            if (quantity == null) throw new ArgumentNullException(nameof(quantity));
+            lock (_lock)
+            {
+                var copy = new TakeoffState
+                {
+                    Quantities = new System.Collections.Generic.List<Quantity>(_state.Quantities ?? new System.Collections.Generic.List<Quantity>()),
+                    Measurements = new System.Collections.Generic.List<Measurement>(_state.Measurements ?? new System.Collections.Generic.List<Measurement>())
+                };
+                copy.Quantities.Add(quantity);
+                var validation = _validator.ValidateTakeoffState(copy);
+                if (!validation.IsValid) return validation;
+                _state = copy;
+                return validation;
+            }
+        }
+
+        // Update existing quantity by Id
+        public ValidationResult UpdateQuantity(Quantity quantity)
+        {
+            if (quantity == null) throw new ArgumentNullException(nameof(quantity));
+            lock (_lock)
+            {
+                var quantities = new System.Collections.Generic.List<Quantity>(_state.Quantities ?? new System.Collections.Generic.List<Quantity>());
+                var idx = quantities.FindIndex(q => q != null && q.Id == quantity.Id);
+                if (idx < 0)
+                {
+                    var result = new ValidationResult { IsValid = false, Errors = new System.Collections.Generic.List<string> { "Quantity not found" } };
+                    return result;
+                }
+                quantities[idx] = quantity;
+                var copy = new TakeoffState { Quantities = quantities, Measurements = new System.Collections.Generic.List<Measurement>(_state.Measurements ?? new System.Collections.Generic.List<Measurement>()) };
+                var validation = _validator.ValidateTakeoffState(copy);
+                if (!validation.IsValid) return validation;
+                _state = copy;
+                return validation;
+            }
+        }
+
+        // Delete quantity by Id
+        public ValidationResult DeleteQuantity(Guid quantityId)
+        {
+            lock (_lock)
+            {
+                var quantities = new System.Collections.Generic.List<Quantity>(_state.Quantities ?? new System.Collections.Generic.List<Quantity>());
+                var removed = quantities.RemoveAll(q => q != null && q.Id == quantityId);
+                if (removed == 0)
+                {
+                    var result = new ValidationResult { IsValid = false, Errors = new System.Collections.Generic.List<string> { "Quantity not found" } };
+                    return result;
+                }
+                var copy = new TakeoffState { Quantities = quantities, Measurements = new System.Collections.Generic.List<Measurement>(_state.Measurements ?? new System.Collections.Generic.List<Measurement>()) };
+                var validation = _validator.ValidateTakeoffState(copy);
+                if (!validation.IsValid) return validation;
+                _state = copy;
+                return validation;
+            }
+        }
+
+        // Add a measurement
+        public ValidationResult AddMeasurement(Measurement measurement)
+        {
+            if (measurement == null) throw new ArgumentNullException(nameof(measurement));
+            lock (_lock)
+            {
+                var copy = new TakeoffState
+                {
+                    Quantities = new System.Collections.Generic.List<Quantity>(_state.Quantities ?? new System.Collections.Generic.List<Quantity>()),
+                    Measurements = new System.Collections.Generic.List<Measurement>(_state.Measurements ?? new System.Collections.Generic.List<Measurement>())
+                };
+                copy.Measurements.Add(measurement);
+                var validation = _validator.ValidateTakeoffState(copy);
+                if (!validation.IsValid) return validation;
+                _state = copy;
+                return validation;
+            }
+        }
+
+        // Update measurement by matching all properties? use index by Guid if present - Measurement class has no Id; use object identity via index
+        public ValidationResult UpdateMeasurement(int index, Measurement measurement)
+        {
+            if (measurement == null) throw new ArgumentNullException(nameof(measurement));
+            lock (_lock)
+            {
+                var measurements = new System.Collections.Generic.List<Measurement>(_state.Measurements ?? new System.Collections.Generic.List<Measurement>());
+                if (index < 0 || index >= measurements.Count)
+                {
+                    var res = new ValidationResult { IsValid = false, Errors = new System.Collections.Generic.List<string> { "Measurement index out of range" } };
+                    return res;
+                }
+                measurements[index] = measurement;
+                var copy = new TakeoffState { Quantities = new System.Collections.Generic.List<Quantity>(_state.Quantities ?? new System.Collections.Generic.List<Quantity>()), Measurements = measurements };
+                var validation = _validator.ValidateTakeoffState(copy);
+                if (!validation.IsValid) return validation;
+                _state = copy;
+                return validation;
+            }
+        }
+
+        // Delete measurement by index
+        public ValidationResult DeleteMeasurement(int index)
+        {
+            lock (_lock)
+            {
+                var measurements = new System.Collections.Generic.List<Measurement>(_state.Measurements ?? new System.Collections.Generic.List<Measurement>());
+                if (index < 0 || index >= measurements.Count)
+                {
+                    var res = new ValidationResult { IsValid = false, Errors = new System.Collections.Generic.List<string> { "Measurement index out of range" } };
+                    return res;
+                }
+                measurements.RemoveAt(index);
+                var copy = new TakeoffState { Quantities = new System.Collections.Generic.List<Quantity>(_state.Quantities ?? new System.Collections.Generic.List<Quantity>()), Measurements = measurements };
+                var validation = _validator.ValidateTakeoffState(copy);
+                if (!validation.IsValid) return validation;
+                _state = copy;
+                return validation;
+            }
+        }
+
+        // Existing generator method returns a validated default state or throws
         public TakeoffState GetDefaultTakeoffState()
         {
             // Create a static default state
