@@ -9,11 +9,17 @@ namespace Takeoff.Controllers
     [Route("[controller]/[action]")]
     public class TakeoffController : ControllerBase
     {
+        private readonly StateService _service;
+
+        public TakeoffController(StateService service)
+        {
+            _service = service;
+        }
+
         [HttpGet]
         public ActionResult<TakeoffState> GetQuantities()
         {
-            var service = new StateService();
-            var state = service.GetDefaultTakeoffState();
+            var state = _service.GetState();
             return Ok(state);
         }
     }

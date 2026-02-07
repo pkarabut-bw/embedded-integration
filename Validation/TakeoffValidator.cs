@@ -287,14 +287,19 @@ namespace Validation
             var grouped = quantities
                 .Where(q => q != null && q.ConditionId != Guid.Empty)
                 .GroupBy(q => q.ConditionId)
-                .Select(g => new {ConditionId = g.Key, Count = g.Count(), Items = g.ToList()})
-                .Where(x => x.Count > 3)
+                .Select(g => new
+                {
+                    ConditionId = g.Key,
+                    DistinctIdCount = g.Select(q => q?.Id ?? Guid.Empty).Where(id => id != Guid.Empty).Distinct().Count(),
+                    Items = g.ToList()
+                })
+                .Where(x => x.DistinctIdCount > 3)
                 .ToList();
 
             foreach (var g in grouped)
             {
                 result.IsValid = false;
-                result.Errors.Add($"ConditionId {g.ConditionId} is used by {g.Count} quantities; maximum allowed is 3");
+                result.Errors.Add($"ConditionId {g.ConditionId} is used by {g.DistinctIdCount} quantities with distinct Ids; maximum allowed is 3");
             }
 
             // Check that quantities with the same ConditionId have unique names (case-insensitive, trimmed)
@@ -304,18 +309,23 @@ namespace Validation
 
             foreach (var grp in groupsByCondition)
             {
-                var nameCounts = grp
+                // Group by trimmed, case-insensitive name
+                var nameGroups = grp
                     .Where(q => !string.IsNullOrWhiteSpace(q.Name))
                     .GroupBy(q => q.Name.Trim(), StringComparer.OrdinalIgnoreCase)
-                    .Select(g => new {Name = g.Key, Count = g.Count()})
-                    .Where(x => x.Count > 1)
                     .ToList();
 
-                foreach (var dup in nameCounts)
+                foreach (var ng in nameGroups)
                 {
-                    result.IsValid = false;
-                    result.Errors.Add(
-                        $"ConditionId {grp.Key} has duplicate quantity name '{dup.Name}' used by {dup.Count} quantities");
+                    // Count distinct Quantity.Id values for this name. Only consider it a conflict
+                    // if the same name is used by more than one distinct Id.
+                    var distinctIdCount = ng.Select(q => q.Id).Distinct().Count();
+                    if (distinctIdCount > 1)
+                    {
+                        result.IsValid = false;
+                        result.Errors.Add(
+                            $"ConditionId {grp.Key} has duplicate quantity name '{ng.Key}' used by {distinctIdCount} different quantities (different Ids)");
+                    }
                 }
             }
 
@@ -504,18 +514,56 @@ namespace Validation
                 result.Errors.Add("OrderNumber must be non-negative");
             }
 
-            var measResult = ValidateMeasurement(action.Measurement);
-            if (!measResult.IsValid)
+            // Enforce exclusivity: Quantity actions must carry Quantity only; Measurement actions must carry Measurement only
+            var isQuantityEntity = !string.IsNullOrWhiteSpace(action.EntityType) && string.Equals(action.EntityType, ENTITY_QUANTITY, StringComparison.OrdinalIgnoreCase);
+            var isMeasurementEntity = !string.IsNullOrWhiteSpace(action.EntityType) && string.Equals(action.EntityType, ENTITY_MEASUREMENT, StringComparison.OrdinalIgnoreCase);
+
+            if (isQuantityEntity)
             {
-                result.IsValid = false;
-                result.Errors.AddRange(measResult.Errors.Select(e => $"Measurement: {e}"));
+                if (action.Quantity == null)
+                {
+                    result.IsValid = false;
+                    result.Errors.Add("EntityType 'Quantity' requires a non-null Quantity");
+                }
+                if (action.Measurement != null)
+                {
+                    result.IsValid = false;
+                    result.Errors.Add("EntityType 'Quantity' requires Measurement to be null");
+                }
+            }
+            else if (isMeasurementEntity)
+            {
+                if (action.Measurement == null)
+                {
+                    result.IsValid = false;
+                    result.Errors.Add("EntityType 'Measurement' requires a non-null Measurement");
+                }
+                if (action.Quantity != null)
+                {
+                    result.IsValid = false;
+                    result.Errors.Add("EntityType 'Measurement' requires Quantity to be null");
+                }
             }
 
-            var qtyResult = ValidateQuantity(action.Quantity);
-            if (!qtyResult.IsValid)
+            // Validate contained entities only if present (to avoid duplicate null errors)
+            if (action.Measurement != null)
             {
-                result.IsValid = false;
-                result.Errors.AddRange(qtyResult.Errors.Select(e => $"Quantity: {e}"));
+                var measResult = ValidateMeasurement(action.Measurement);
+                if (!measResult.IsValid)
+                {
+                    result.IsValid = false;
+                    result.Errors.AddRange(measResult.Errors.Select(e => $"Measurement: {e}"));
+                }
+            }
+
+            if (action.Quantity != null)
+            {
+                var qtyResult = ValidateQuantity(action.Quantity);
+                if (!qtyResult.IsValid)
+                {
+                    result.IsValid = false;
+                    result.Errors.AddRange(qtyResult.Errors.Select(e => $"Quantity: {e}"));
+                }
             }
 
             return result;
