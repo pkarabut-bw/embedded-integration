@@ -41,6 +41,7 @@
   <div class="tabs" style="margin-bottom:50px">
     <button id="tabQuant" class="tab-btn active">Quantities</button>
     <button id="tabMeas" class="tab-btn">Measurements</button>
+    <button id="tabChanges" class="tab-btn">Changes</button>
   </div>
 
   <div id="quantTab" class="tab active">
@@ -55,6 +56,14 @@
     <div class="section-header"><h2 style="margin:0">Measurements</h2><button id="addMeas">Add Measurement</button></div>
     <table id="measTable">
       <thead><tr><th>Index</th><th>MeasurementType</th><th>ConditionType</th><th>Uom</th><th>ConditionId</th><th>Value</th><th>Actions</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div id="changesTab" class="tab">
+    <div class="section-header"><h2 style="margin:0">Changes</h2></div>
+    <table id="changesTable">
+      <thead><tr><th>Order</th><th>Action</th><th>Entity</th><th>QuantityId</th><th>MeasurementType</th><th>Details</th></tr></thead>
       <tbody></tbody>
     </table>
   </div>
@@ -99,6 +108,11 @@
 
     async function fetchState() {
       const res = await fetch('/State');
+      return res.ok ? await res.json() : null;
+    }
+
+    async function fetchActions() {
+      const res = await fetch('/State/actions');
       return res.ok ? await res.json() : null;
     }
 
@@ -213,6 +227,48 @@
         actions.appendChild(edit); actions.appendChild(del);
         tr.appendChild(actions);
         mBody.appendChild(tr);
+      });
+
+      // Render actions list if changes tab is active
+      const changesTabActive = document.getElementById('changesTab').classList.contains('active');
+      if (changesTabActive) await renderActions();
+    }
+
+    async function renderActions() {
+      const actions = await fetchActions();
+      const body = document.querySelector('#changesTable tbody'); body.innerHTML = '';
+      if (!actions) return;
+      const list = actions.Actions || actions.actions;
+      if (!list) return;
+      list.forEach(a => {
+        const tr = document.createElement('tr');
+        const order = a.OrderNumber ?? a.orderNumber ?? '';
+        const actionName = a.ActionName ?? a.actionName ?? '';
+        const entityType = a.EntityType ?? a.entityType ?? '';
+        const qty = a.Quantity || a.quantity || null;
+        const meas = a.Measurement || a.measurement || null;
+        tr.appendChild(rowCell(order));
+        tr.appendChild(rowCell(actionName));
+        tr.appendChild(rowCell(entityType));
+        tr.appendChild(rowCell(qty ? (qty.Id ?? qty.id ?? '') : ''));
+        tr.appendChild(rowCell(meas ? (meas.MeasurementType ?? meas.measurementType ?? '') : ''));
+        const details = document.createElement('td');
+        if (qty) {
+          const qid = qty.Id ?? qty.id ?? '';
+          const qname = qty.Name ?? qty.name ?? '';
+          const quom = qty.Uom ?? qty.uom ?? '';
+          const qcond = qty.ConditionId ?? qty.conditionId ?? '';
+          const qval = qty.Value ?? qty.value ?? '';
+          details.textContent = `Name=${qname}, Uom=${quom}, Cond=${qcond}, Val=${qval}`;
+        } else if (meas) {
+          const mtype = meas.MeasurementType ?? meas.measurementType ?? '';
+          const muom = meas.Uom ?? meas.uom ?? '';
+          const mcond = meas.ConditionId ?? meas.conditionId ?? '';
+          const mval = meas.Value ?? meas.value ?? '';
+          details.textContent = `Type=${mtype}, Uom=${muom}, Cond=${mcond}, Val=${mval}`;
+        }
+        tr.appendChild(details);
+        body.appendChild(tr);
       });
     }
 
@@ -353,25 +409,40 @@
 
     document.getElementById('addQty').addEventListener('click', addQuantity);
     document.getElementById('addMeas').addEventListener('click', addMeasurement);
-    document.getElementById('reset').addEventListener('click', async () => { const r = await fetch('/State/reset', { method: 'POST' }); if (!r.ok) { const txt = await r.text(); showError(txt); } await render(); });
+    document.getElementById('reset').addEventListener('click', async () => { const r = await fetch('/State/reset', { method: 'POST' }); if (!r.ok) { const txt = await res.text(); showError(txt); } await render(); });
 
     // Tabs handling
     const tabQuant = document.getElementById('tabQuant');
     const tabMeas = document.getElementById('tabMeas');
+    const tabChanges = document.getElementById('tabChanges');
     const quantTab = document.getElementById('quantTab');
     const measTab = document.getElementById('measTab');
+    const changesTab = document.getElementById('changesTab');
 
-    tabQuant.addEventListener('click', () => {
+    tabQuant.addEventListener('click', async () => {
       tabQuant.classList.add('active');
       tabMeas.classList.remove('active');
+      tabChanges.classList.remove('active');
       quantTab.classList.add('active');
       measTab.classList.remove('active');
+      changesTab.classList.remove('active');
     });
-    tabMeas.addEventListener('click', () => {
+    tabMeas.addEventListener('click', async () => {
       tabMeas.classList.add('active');
       tabQuant.classList.remove('active');
+      tabChanges.classList.remove('active');
       measTab.classList.add('active');
       quantTab.classList.remove('active');
+      changesTab.classList.remove('active');
+    });
+    tabChanges.addEventListener('click', async () => {
+      tabChanges.classList.add('active');
+      tabQuant.classList.remove('active');
+      tabMeas.classList.remove('active');
+      changesTab.classList.add('active');
+      quantTab.classList.remove('active');
+      measTab.classList.remove('active');
+      await renderActions();
     });
 
     render();

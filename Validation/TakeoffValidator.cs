@@ -259,7 +259,7 @@ namespace Validation
             return result;
         }
 
-        public ValidationResult ValidateListOfQuantities(List<Contracts.Quantity> quantities)
+        public ValidationResult ValidateListOfQuantitiesForState(List<Contracts.Quantity> quantities)
         {
             var result = new ValidationResult
             {
@@ -290,16 +290,16 @@ namespace Validation
                 .Select(g => new
                 {
                     ConditionId = g.Key,
-                    DistinctIdCount = g.Select(q => q?.Id ?? Guid.Empty).Where(id => id != Guid.Empty).Distinct().Count(),
+                    Count = g.Select(q => q?.Id ?? Guid.Empty).Where(id => id != Guid.Empty).Distinct().Count(),
                     Items = g.ToList()
                 })
-                .Where(x => x.DistinctIdCount > 3)
+                .Where(x => x.Count > 3)
                 .ToList();
 
             foreach (var g in grouped)
             {
                 result.IsValid = false;
-                result.Errors.Add($"ConditionId {g.ConditionId} is used by {g.DistinctIdCount} quantities with distinct Ids; maximum allowed is 3");
+                result.Errors.Add($"ConditionId {g.ConditionId} is used by {g.Count} quantities; maximum allowed is 3");
             }
 
             // Check that quantities with the same ConditionId have unique names (case-insensitive, trimmed)
@@ -319,12 +319,12 @@ namespace Validation
                 {
                     // Count distinct Quantity.Id values for this name. Only consider it a conflict
                     // if the same name is used by more than one distinct Id.
-                    var distinctIdCount = ng.Select(q => q.Id).Distinct().Count();
-                    if (distinctIdCount > 1)
+                    var count = ng.Select(q => q.Id).Count();
+                    if (count > 1)
                     {
                         result.IsValid = false;
                         result.Errors.Add(
-                            $"ConditionId {grp.Key} has duplicate quantity name '{ng.Key}' used by {distinctIdCount} different quantities (different Ids)");
+                            $"ConditionId {grp.Key} has duplicate quantity name '{ng.Key}' used by {count}");
                     }
                 }
             }
@@ -332,7 +332,35 @@ namespace Validation
             return result;
         }
 
-        public ValidationResult ValidateListOfMeasurements(List<Contracts.Measurement> measurements)
+        // For quantities extracted from actions
+        public ValidationResult ValidateListOfQuantitiesForActions(List<Contracts.Quantity> quantities)
+        {
+            var result = new ValidationResult
+            {
+                IsValid = true,
+                Errors = new System.Collections.Generic.List<string>()
+            };
+            if (quantities == null)
+            {
+                result.IsValid = false;
+                result.Errors.Add("quantities list is null");
+                return result;
+            }
+
+            for (int i = 0; i < quantities.Count; i++)
+            {
+                var qtyResult = ValidateQuantity(quantities[i]);
+                if (!qtyResult.IsValid)
+                {
+                    result.IsValid = false;
+                    result.Errors.AddRange(qtyResult.Errors.Select(e => $"Quantity[{i}]: {e}"));
+                }
+            }
+
+            return result;
+        }
+        
+        public ValidationResult ValidateListOfMeasurementsForState(List<Contracts.Measurement> measurements)
         {
             var result = new ValidationResult
             {
@@ -421,6 +449,34 @@ namespace Validation
             return result;
         }
 
+        // For measurements extracted from actions
+        public ValidationResult ValidateListOfMeasurementsForActions(List<Contracts.Measurement> measurements)
+        {
+            var result = new ValidationResult
+            {
+                IsValid = true,
+                Errors = new System.Collections.Generic.List<string>()
+            };
+            if (measurements == null)
+            {
+                result.IsValid = false;
+                result.Errors.Add("measurements list is null");
+                return result;
+            }
+
+            for (int i = 0; i < measurements.Count; i++)
+            {
+                var measResult = ValidateMeasurement(measurements[i]);
+                if (!measResult.IsValid)
+                {
+                    result.IsValid = false;
+                    result.Errors.AddRange(measResult.Errors.Select(e => $"Measurement[{i}]: {e}"));
+                }
+            }
+
+            return result;
+        }
+
         public ValidationResult ValidateTakeoffState(Contracts.TakeoffState state)
         {
             var result = new ValidationResult
@@ -436,7 +492,7 @@ namespace Validation
                 return result;
             }
 
-            var quantitiesResult = ValidateListOfQuantities(state.Quantities);
+            var quantitiesResult = ValidateListOfQuantitiesForState(state.Quantities);
 
             if (!quantitiesResult.IsValid)
             {
@@ -461,7 +517,7 @@ namespace Validation
                 }
             }
 
-            var measurementsResult = ValidateListOfMeasurements(state.Measurements);
+            var measurementsResult = ValidateListOfMeasurementsForState(state.Measurements);
 
             if (!measurementsResult.IsValid)
             {
@@ -652,14 +708,14 @@ namespace Validation
                 .Select(a => a.Measurement)
                 .ToList();
 
-            var qtyResult = ValidateListOfQuantities(quantities);
+            var qtyResult = ValidateListOfQuantitiesForActions(quantities);
             if (!qtyResult.IsValid)
             {
                 result.IsValid = false;
                 result.Errors.AddRange(qtyResult.Errors.Select(e => $"Quantities: {e}"));
             }
 
-            var measResult = ValidateListOfMeasurements(measurements);
+            var measResult = ValidateListOfMeasurementsForActions(measurements);
             if (!measResult.IsValid)
             {
                 result.IsValid = false;

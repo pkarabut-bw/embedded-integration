@@ -24,6 +24,13 @@ namespace Takeoff.Controllers
             return Ok(state);
         }
 
+        [HttpGet("actions")]
+        public ActionResult<TakeoffActionsList> GetActions()
+        {
+            var actions = _service.GetActionsList();
+            return Ok(actions);
+        }
+
         [HttpPost("quantities")]
         public ActionResult AddQuantity([FromBody] Quantity quantity)
         {
