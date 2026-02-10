@@ -1,0 +1,32 @@
+We need to create two web applications that interact with each other. Both applications will use the Contracts project. The first is called Takeoff, and the second is called Estimator. Both projects must be web APIs. Both projects must use controllers. Takeoff and Estimator must store each other's URLs in their settings to enable interaction.
+
+The Takeoff project must store a list of Condition class instances. Let's call this data "TakeoffData".
+This data must be stored in memory, in a singleton service.
+
+The Estimator project must store a list of Condition class instances. Let's call this data "EstimatorData".
+This data must be stored in memory, in a singleton service.
+
+Interactions between Takeoff and Estimator.
+1. Estimator can request a full list of Conditions from Takeoff. The request must be made by ProjectId. In this case, Takeoff will return TakeoffData. Estimator will store the resulting list in EstimatorData. This new list should replace the existing list in EstimatorData.
+2. Takeoff can send a single instance of the Condition class to the Estimator. This corresponds to a change in a single Condition within TakeoffData. After receiving a Condition instance, the Estimator finds the same one within EstimatorData by Id. The Estimator then copies the Metadata from the received Condition instance to the existing instance. The Estimator then iterates through the received list of MeasurementValues ​​and, for each MeasurementValue instance, finds the corresponding instance within the current Condition by MeasurementId. The Value property of the found instance is updated to the value received from Takeoff.
+3. Takeoff can send a command to the Estimator to delete a specific Condition by Id. In this case, the Estimator should find the corresponding Condition in EstimatorData and delete it.
+
+Interactions between Takeoff and Estimator in both projects should be organized in a separate controller called InteractionsController, while all other server methods should be contained in a controller called DemoController.
+
+The Takeoff project must have server methods for CRUD operations with Condition instances stored in TakeoffData. A user interface page corresponding to these methods must be added.
+
+After each user-initiated change to TakeoffData, the corresponding Condition must be sent to the Estimator. This synchronizes the data in Takeoff and Estimator.
+
+The Takeoff user interface should look like this:
+1) A TreeView control should occupy the entire screen.
+2) This control should display TakeoffData along with all nested objects and their fields (properties).
+3) AddCondition, EditCondition, and DeleteCondition buttons should be located above the TreeView.
+4) The AddCondition button opens a form for creating a Condition. This form should allow the user to view/edit the Condition along with all nested objects and their fields (properties). After adding a Condition via the form, the Condition is added to TakeoffData.
+5) The EditCondition button opens a form for editing the Condition. The form should be similar to the form for creating a Condition.
+After changing the Condition via the form, the Condition is updated in TakeoffData.
+6) The DeleteCondition button allows you to delete the Condition from TakeoffData.
+7) Any Guid-type IDs should be generated upon creation and should not change thereafter. To generate a Guid, a corresponding server method must be created.
+
+The Estimator user interface should look like this:
+1) A full-screen TreeView control should be present, similar to the Takeoff control, except it should be read-only. Using this control, the user can view EstimatorData with all nested objects and their fields (properties).
+2) At the top of the TreeView, there should be a "Get All Conditions from Takeoff" button. This button requests the full list of Conditions from Takeoff. This ensures that the data in Takeoff and Estimator is fully synchronized.
