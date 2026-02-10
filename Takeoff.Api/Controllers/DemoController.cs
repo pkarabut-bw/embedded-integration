@@ -44,11 +44,10 @@ namespace Takeoff.Api.Controllers
         {
             if (condition.ProjectId == Guid.Empty) return BadRequest("ProjectId required");
             if (condition.Id == Guid.Empty) condition.Id = Guid.NewGuid();
-            condition.Metadata ??= new List<MeasurementMetadata>();
-            condition.MeasurementValues ??= new List<MeasurementValue>();
+            condition.Measurements ??= new List<Measurement>();
 
             var created = _store.Add(condition);
-            _ = _client.SendConditionChangedAsync(created);
+            _client.SendConditionChangedAsync(created);
             return Ok(created);
         }
 
@@ -56,11 +55,10 @@ namespace Takeoff.Api.Controllers
         public async Task<ActionResult<Condition>> Update(Guid conditionId, [FromBody] Condition condition)
         {
             if (conditionId != condition.Id) condition.Id = conditionId;
-            condition.Metadata ??= new List<MeasurementMetadata>();
-            condition.MeasurementValues ??= new List<MeasurementValue>();
+            condition.Measurements ??= new List<Measurement>();
 
             var updated = _store.Update(condition);
-            _ = _client.SendConditionChangedAsync(updated);
+            _client.SendConditionChangedAsync(updated);
             return Ok(updated);
         }
 
@@ -69,7 +67,7 @@ namespace Takeoff.Api.Controllers
         {
             var deleted = _store.Delete(projectId, conditionId);
             if (!deleted) return NotFound();
-            _ = _client.SendConditionDeletedAsync(projectId, conditionId);
+            _client.SendConditionDeletedAsync(projectId, conditionId);
             return NoContent();
         }
 

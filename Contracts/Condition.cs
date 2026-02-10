@@ -11,14 +11,9 @@
         public Guid ProjectId { get; set; }
 
         /// <summary>
-        /// Always full list of possible measurements for this condition
-        /// </summary>
-        public List<MeasurementMetadata> Metadata { get; set; }
-
-        /// <summary>
         /// In case of callback - only changed measurements
         /// In case of snapshot - all possible measurements
         /// </summary>
-        public List<MeasurementValue> MeasurementValues { get; set; }
+        public List<Measurement> Measurements { get; set; }
     }
 }

@@ -85,17 +85,12 @@ namespace Takeoff.Api.Services
             {
                 Id = src.Id,
                 ProjectId = src.ProjectId,
-                Metadata = src.Metadata?.Select(m => new MeasurementMetadata
+                Measurements = src.Measurements?.Select(v => new Measurement
                 {
-                    MeasurementId = m.MeasurementId,
-                    MeasurementName = m.MeasurementName,
-                    UnitsOfMeasurements = m.UnitsOfMeasurements
-                }).ToList() ?? new List<MeasurementMetadata>(),
-                MeasurementValues = src.MeasurementValues?.Select(v => new MeasurementValue
-                {
-                    MeasurementId = v.MeasurementId,
+                    MeasurementName = v.MeasurementName,
+                    UnitsOfMeasurements = v.UnitsOfMeasurements,
                     Value = v.Value
-                }).ToList() ?? new List<MeasurementValue>()
+                }).ToList() ?? new List<Measurement>()
             };
         }
     }

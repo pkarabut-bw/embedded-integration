@@ -1,11 +1,11 @@
 ﻿namespace Contracts
 {
-    public class MeasurementMetadata
+    public class Measurement
     {
-        public Guid MeasurementId { get; set; }
-
         public string MeasurementName { get; set; }
 
         public string UnitsOfMeasurements { get; set; }
+
+        public double Value { get; set; }
     }
 }

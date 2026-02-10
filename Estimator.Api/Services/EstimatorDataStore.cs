@@ -38,8 +38,7 @@ namespace Estimator.Api.Services
         {
             lock (_gate)
             {
-                changed.Metadata ??= new List<MeasurementMetadata>();
-                changed.MeasurementValues ??= new List<MeasurementValue>();
+                changed.Measurements ??= new List<Measurement>();
 
                 if (!_data.TryGetValue(changed.ProjectId, out var list))
                 {
@@ -55,36 +54,32 @@ namespace Estimator.Api.Services
                     return Clone(copy);
                 }
 
-                // replace metadata
-                existing.Metadata = changed.Metadata.Select(m => new MeasurementMetadata
-                {
-                    MeasurementId = m.MeasurementId,
-                    MeasurementName = m.MeasurementName,
-                    UnitsOfMeasurements = m.UnitsOfMeasurements
-                }).ToList();
+                // Build a lookup of incoming measurements by name
+                var incomingByName = changed.Measurements
+                    .Where(m => !string.IsNullOrEmpty(m.MeasurementName))
+                    .ToDictionary(m => m.MeasurementName, StringComparer.OrdinalIgnoreCase);
 
-                // merge measurement values
-                foreach (var mv in changed.MeasurementValues)
+                // Create new list of measurements: for each incoming measurement, update existing if present, else add
+                var newMeasurements = new List<Measurement>();
+                foreach (var inc in changed.Measurements)
                 {
-                    var exMv = existing.MeasurementValues.FirstOrDefault(x => x.MeasurementId == mv.MeasurementId);
-                    if (exMv is null)
+                    if (string.IsNullOrEmpty(inc.MeasurementName)) continue;
+                    var ex = existing.Measurements.FirstOrDefault(x => string.Equals(x.MeasurementName, inc.MeasurementName, StringComparison.OrdinalIgnoreCase));
+                    if (ex is null)
                     {
-                        existing.MeasurementValues.Add(new MeasurementValue { MeasurementId = mv.MeasurementId, Value = mv.Value });
+                        newMeasurements.Add(new Measurement { MeasurementName = inc.MeasurementName, UnitsOfMeasurements = inc.UnitsOfMeasurements, Value = inc.Value });
                     }
                     else
                     {
-                        exMv.Value = mv.Value;
+                        // update value and units from incoming
+                        ex.Value = inc.Value;
+                        ex.UnitsOfMeasurements = inc.UnitsOfMeasurements ?? ex.UnitsOfMeasurements;
+                        newMeasurements.Add(new Measurement { MeasurementName = ex.MeasurementName, UnitsOfMeasurements = ex.UnitsOfMeasurements, Value = ex.Value });
                     }
                 }
 
-                // ensure measurement values exist for all metadata
-                foreach (var meta in existing.Metadata)
-                {
-                    if (!existing.MeasurementValues.Any(x => x.MeasurementId == meta.MeasurementId))
-                    {
-                        existing.MeasurementValues.Add(new MeasurementValue { MeasurementId = meta.MeasurementId, Value = 0 });
-                    }
-                }
+                // Replace existing measurements with the new list - this removes any measurements not present in incoming
+                existing.Measurements = newMeasurements;
 
                 return Clone(existing);
             }
@@ -116,17 +111,12 @@ namespace Estimator.Api.Services
             {
                 Id = src.Id,
                 ProjectId = src.ProjectId,
-                Metadata = src.Metadata?.Select(m => new MeasurementMetadata
+                Measurements = src.Measurements?.Select(v => new Measurement
                 {
-                    MeasurementId = m.MeasurementId,
-                    MeasurementName = m.MeasurementName,
-                    UnitsOfMeasurements = m.UnitsOfMeasurements
-                }).ToList() ?? new List<MeasurementMetadata>(),
-                MeasurementValues = src.MeasurementValues?.Select(v => new MeasurementValue
-                {
-                    MeasurementId = v.MeasurementId,
+                    MeasurementName = v.MeasurementName,
+                    UnitsOfMeasurements = v.UnitsOfMeasurements,
                     Value = v.Value
-                }).ToList() ?? new List<MeasurementValue>()
+                }).ToList() ?? new List<Measurement>()
             };
         }
     }

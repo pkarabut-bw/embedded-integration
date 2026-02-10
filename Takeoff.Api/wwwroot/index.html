@@ -43,14 +43,9 @@
           </div>
 
           <div class="mb-2">
-            <h6>Metadata</h6>
-            <table class="table" id="metaTable"><thead><tr><th>MeasurementId</th><th>Name</th><th>Units</th><th></th></tr></thead><tbody></tbody></table>
-            <button id="btnAddMeta" class="btn btn-sm btn-outline-primary">Add Measurement</button>
-          </div>
-
-          <div class="mb-2">
-            <h6>Measurement Values</h6>
-            <table class="table" id="valuesTable"><thead><tr><th>MeasurementId</th><th>Value</th></tr></thead><tbody></tbody></table>
+            <h6>Measurements</h6>
+            <table class="table" id="valuesTable"><thead><tr><th>Measurement Name</th><th>Units</th><th>Value</th><th></th></tr></thead><tbody></tbody></table>
+            <button id="btnAddValue" class="btn btn-sm btn-outline-primary">Add Measurement</button>
           </div>
 
           <div class="d-flex">
@@ -72,6 +67,24 @@
 
     function setStatus(text) { $('#statusArea').text('Status: ' + text); }
 
+    const guidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    function isConditionNodeId(id) {
+      if (!id || !id.startsWith('cond-')) return false;
+      const rest = id.substring(5);
+      return guidRegex.test(rest);
+    }
+
+    function resolveConditionNodeId(node) {
+      if (!node) return null;
+      if (isConditionNodeId(node.id)) return node.id;
+      if (node.parents && node.parents.length) {
+        for (const p of node.parents) {
+          if (isConditionNodeId(p)) return p;
+        }
+      }
+      return null;
+    }
+
     function renderTree(projectId, data) {
       const nodes = [];
       const projectNodeId = 'project-' + projectId;
@@ -79,13 +92,12 @@
       data.forEach(cond => {
         const condId = 'cond-' + cond.id;
         nodes.push({ id: condId, parent: projectNodeId, text: 'Condition: ' + cond.id, data: { condition: cond } });
-        nodes.push({ id: condId + '-meta', parent: condId, text: 'Metadata' });
-        (cond.metadata || []).forEach(m => {
-          nodes.push({ id: condId + '-meta-' + m.measurementId, parent: condId + '-meta', text: m.measurementName + ' (' + m.measurementId + ')' });
-        });
-        nodes.push({ id: condId + '-vals', parent: condId, text: 'MeasurementValues' });
-        (cond.measurementValues || []).forEach(v => {
-          nodes.push({ id: condId + '-vals-' + v.measurementId, parent: condId + '-vals', text: v.measurementId + ': ' + v.value });
+        nodes.push({ id: condId + '-vals', parent: condId, text: 'Measurements' });
+        (cond.measurements || []).forEach((v, i) => {
+          const name = v?.measurementName || '';
+          const safeName = encodeURIComponent(name).replace(/%/g, '');
+          const nodeId = `${condId}-vals-${i}-${safeName}`;
+          nodes.push({ id: nodeId, parent: condId + '-vals', text: (name || '<unnamed>') + ' (' + (v?.unitsOfMeasurements || '') + '): ' + (v?.value ?? 0) });
         });
       });
       const tree = $('#takeoffTree');
@@ -108,7 +120,6 @@
         $sel.empty();
         $sel.append($('<option/>').val('').text('Not selected'));
         ids.forEach(id => $sel.append($('<option/>').val(id).text(id)));
-        // if currentProjectId exists, select it
         if (currentProjectId) $sel.val(currentProjectId);
       }).fail(function(){ setStatus('failed to load projects'); });
     }
@@ -116,7 +127,6 @@
     function clearForm() {
       $('#fId').val('');
       $('#fProjectId').val(currentProjectId || '');
-      $('#metaTable tbody').empty();
       $('#valuesTable tbody').empty();
       currentCondition = null;
       isEditMode = false;
@@ -127,65 +137,36 @@
       currentCondition = condition;
       $('#fId').val(condition.id);
       $('#fProjectId').val(condition.projectId);
-      $('#metaTable tbody').empty();
-      (condition.metadata || []).forEach(m => addMetadataRow(m));
-      rebuildValuesTable();
+      $('#valuesTable tbody').empty();
+      (condition.measurements || []).forEach(v => addValueRow(v));
       isEditMode = true;
       $('#formTitle').text('Edit Condition');
     }
 
-    function addMetadataRow(meta) {
-      const id = meta?.measurementId || '';
-      const name = meta?.measurementName || '';
-      const units = meta?.unitsOfMeasurements || '';
+    function addValueRow(val) {
+      const name = val?.measurementName || '';
+      const units = val?.unitsOfMeasurements || '';
+      const value = val?.value ?? 0;
       const $tr = $(`<tr>
-        <td><input class="form-control measurementId" readonly value="${id}" /></td>
-        <td><input class="form-control measurementName" value="${name}" /></td>
-        <td><input class="form-control units" value="${units}"/></td>
-        <td><button class="btn btn-sm btn-danger btnRemoveMeta">Remove</button></td>
+        <td><input class="form-control valueName" value="${name}" /></td>
+        <td><input class="form-control valueUnits" value="${units}" /></td>
+        <td><input type="number" step="any" class="form-control valueNumber" value="${value}" /></td>
+        <td><button class="btn btn-sm btn-danger btnRemoveValue">Remove</button></td>
       </tr>`);
-      $('#metaTable tbody').append($tr);
-    }
-
-    function rebuildValuesTable() {
-      const metas = [];
-      $('#metaTable tbody tr').each(function(){
-        const mid = $(this).find('.measurementId').val();
-        const mname = $(this).find('.measurementName').val();
-        metas.push({ measurementId: mid, measurementName: mname });
-      });
-      const valuesMap = {};
-      (currentCondition?.measurementValues || []).forEach(v => valuesMap[v.measurementId] = v.value);
-
-      $('#valuesTable tbody').empty();
-      metas.forEach(m => {
-        const mid = m.measurementId || '';
-        const val = valuesMap[mid] ?? 0;
-        const $tr = $(`<tr>
-          <td><input class="form-control valueMeasurementId" readonly value="${mid}" /></td>
-          <td><input type="number" step="any" class="form-control valueNumber" value="${val}" /></td>
-        </tr>`);
-        $('#valuesTable tbody').append($tr);
-      });
+      $('#valuesTable tbody').append($tr);
     }
 
     function gatherForm() {
       const id = $('#fId').val();
       const projectId = $('#fProjectId').val();
-      const metadata = [];
-      $('#metaTable tbody tr').each(function(){
-        const mid = $(this).find('.measurementId').val();
-        const name = $(this).find('.measurementName').val();
-        const units = $(this).find('.units').val();
-        metadata.push({ measurementId: mid, measurementName: name, unitsOfMeasurements: units });
-      });
-      const measurementValues = [];
+      const measurements = [];
       $('#valuesTable tbody tr').each(function(){
-        const mid = $(this).find('.valueMeasurementId').val();
+        const name = $(this).find('.valueName').val();
+        const units = $(this).find('.valueUnits').val();
         const val = parseFloat($(this).find('.valueNumber').val()) || 0;
-        measurementValues.push({ measurementId: mid, value: val });
+        if (name) measurements.push({ measurementName: name, unitsOfMeasurements: units, value: val });
       });
-      return { id: id, projectId: projectId, metadata: metadata, measurementValues: measurementValues };
+      return { id: id, projectId: projectId, measurements: measurements };
     }
 
     function fetchAndPopulateFromNodeId(nodeId) {
@@ -207,53 +188,54 @@
         if (!val) { loadProject(null); } else { loadProject(val); }
       });
 
+      $('#takeoffTree').on('select_node.jstree', function(e, data){
+        const node = data.node;
+        if (!node) return;
+        const condNodeId = resolveConditionNodeId(node);
+        if (condNodeId) fetchAndPopulateFromNodeId(condNodeId);
+      });
+
       $('#btnAddCondition').click(function(){
-        // prepare form with new condition id
         $.post('/api/demo/guids').done(function(condGuid){
           clearForm();
           $('#fId').val(condGuid);
           const sel = $('#projectSelect').val();
           if (sel) {
-            // use existing selected project
             $('#fProjectId').val(sel);
-            addMetadataRow({ measurementId: '', measurementName: '', unitsOfMeasurements: '' });
+            addValueRow({ measurementName: '', unitsOfMeasurements: '', value: 0 });
           } else {
-            // create a new project id and select it
             $.post('/api/demo/guids').done(function(projGuid){
-              // add to dropdown and select
               const $sel = $('#projectSelect');
               $sel.append($('<option/>').val(projGuid).text(projGuid));
               $sel.val(projGuid);
               $('#fProjectId').val(projGuid);
-              // load project (empty) and add initial metadata row
               loadProject(projGuid);
-              addMetadataRow({ measurementId: '', measurementName: '', unitsOfMeasurements: '' });
+              addValueRow({ measurementName: '', unitsOfMeasurements: '', value: 0 });
             }).fail(function(){ alert('Failed to get project guid'); });
           }
         }).fail(function(){ alert('Failed to get guid'); });
       });
 
-      $('#takeoffTree').on('select_node.jstree', function(e, data){
-        const node = data.node;
-        if (node && node.id.startsWith('cond-')) {
-          fetchAndPopulateFromNodeId(node.id);
-        }
-      });
-
       $('#btnEditCondition').click(function(){
         const sel = $('#takeoffTree').jstree('get_selected');
         if (!sel || !sel.length) return alert('Select a condition node');
-        const nodeId = sel[0];
-        if (!nodeId.startsWith('cond-')) return alert('Select a condition node');
-        fetchAndPopulateFromNodeId(nodeId);
+        let nodeId = sel[0];
+        const tree = $('#takeoffTree').jstree(true);
+        const node = tree.get_node(nodeId);
+        const condNodeId = resolveConditionNodeId(node);
+        if (!condNodeId) return alert('Select a condition node');
+        fetchAndPopulateFromNodeId(condNodeId);
       });
 
       $('#btnDeleteCondition').click(function(){
         const sel = $('#takeoffTree').jstree('get_selected');
         if (!sel || !sel.length) return alert('Select a condition node');
-        const nodeId = sel[0];
-        if (!nodeId.startsWith('cond-')) return alert('Select a condition node');
-        const condId = nodeId.replace('cond-','');
+        let nodeId = sel[0];
+        const tree = $('#takeoffTree').jstree(true);
+        const node = tree.get_node(nodeId);
+        const condNodeId = resolveConditionNodeId(node);
+        if (!condNodeId) return alert('Select a condition node');
+        const condId = condNodeId.replace('cond-','');
         const projectId = currentProjectId;
         if (!projectId) return alert('ProjectId required');
         setStatus('deleting');
@@ -262,17 +244,9 @@
           .fail(function(){ setStatus('delete failed'); alert('Delete failed'); });
       });
 
-      $('#btnAddMeta').click(function(){
-        // generate measurement id from server
-        $.post('/api/demo/guids').done(function(guid){ addMetadataRow({ measurementId: guid, measurementName: '', unitsOfMeasurements: '' }); rebuildValuesTable(); })
-          .fail(function(){ alert('Failed to get guid'); });
-      });
+      $('#btnAddValue').click(function(){ addValueRow({ measurementName: '', unitsOfMeasurements: '', value: 0 }); });
 
-      $('#metaTable').on('click', '.btnRemoveMeta', function(){
-        $(this).closest('tr').remove(); rebuildValuesTable();
-      });
-
-      $('#metaTable').on('input', '.measurementName, .units', function(){ rebuildValuesTable(); });
+      $('#valuesTable').on('click', '.btnRemoveValue', function(){ $(this).closest('tr').remove(); });
 
       $('#btnCancel').click(function(){ clearForm(); });
 
