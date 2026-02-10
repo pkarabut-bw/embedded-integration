@@ -26,7 +26,11 @@ The Takeoff user interface should look like this:
 After changing the Condition via the form, the Condition is updated in TakeoffData.
 6) The DeleteCondition button allows you to delete the Condition from TakeoffData.
 7) Any Guid-type IDs should be generated upon creation and should not change thereafter. To generate a Guid, a corresponding server method must be created.
+8) Use JQuery to implement this UI. You can use any open-source TreeView control compatible with JQuery.
+9) Use forms with input fields and other input controls instead of page dialogs.
 
 The Estimator user interface should look like this:
 1) A full-screen TreeView control should be present, similar to the Takeoff control, except it should be read-only. Using this control, the user can view EstimatorData with all nested objects and their fields (properties).
 2) At the top of the TreeView, there should be a "Get All Conditions from Takeoff" button. This button requests the full list of Conditions from Takeoff. This ensures that the data in Takeoff and Estimator is fully synchronized.
+3) Use JQuery to implement this UI. You can use any open-source TreeView control compatible with JQuery.
+4) Use forms with input fields and other input controls instead of page dialogs.
