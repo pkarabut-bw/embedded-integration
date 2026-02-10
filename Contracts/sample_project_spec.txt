@@ -41,7 +41,7 @@ The Takeoff user interface should look like this:
 5) The EditCondition button opens a form for editing the Condition. The form should be similar to the form for creating
    a Condition. After changing the Condition via the form, the Condition is updated in TakeoffData.
 6) The DeleteCondition button allows you to delete the Condition from TakeoffData.
-7) Any Guid-type IDs should be generated upon creation and should not change thereafter. To generate a Guid, a
+7) Any Guid-type IDs should not be entered by user, it should be generated upon creation and should not change thereafter. To generate a Guid, a
    corresponding server method must be created.
 8) Use JQuery to implement this UI. You can use any open-source TreeView control compatible with JQuery.
 9) Use forms with input fields and other input controls instead of page dialogs.
