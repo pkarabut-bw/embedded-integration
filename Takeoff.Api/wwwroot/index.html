@@ -1,0 +1,297 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="https://cdn.jsdelivr.net/npm/jstree@3.3.16/dist/themes/default/style.min.css" rel="stylesheet" />
+  <title>Takeoff</title>
+  <style>
+    body, html { height: 100%; }
+    #formPanel { height: calc(100vh - 120px); overflow:auto }
+    #takeoffTree { height: calc(100vh - 120px); overflow:auto; border:1px solid #ddd; padding:8px }
+    .table td, .table th { vertical-align: middle }
+  </style>
+</head>
+<body>
+  <div class="container-fluid p-2">
+    <div class="d-flex mb-2">
+      <div>
+        <button id="btnAddCondition" class="btn btn-primary">AddCondition</button>
+        <button id="btnEditCondition" class="btn btn-secondary">EditCondition</button>
+        <button id="btnDeleteCondition" class="btn btn-danger">DeleteCondition</button>
+      </div>
+      <div class="ms-auto d-flex align-items-center">
+        <select id="projectSelect" class="form-select me-2" style="width:320px;"></select>
+        <div id="statusArea" class="text-muted">Status: idle</div>
+      </div>
+    </div>
+    <div class="row g-2">
+      <div class="col-7">
+        <div id="takeoffTree"></div>
+      </div>
+      <div class="col-5">
+        <div id="formPanel" class="card p-3">
+          <h5 id="formTitle">Condition</h5>
+          <div class="mb-2">
+            <label class="form-label">Id</label>
+            <input id="fId" class="form-control" readonly />
+          </div>
+          <div class="mb-2">
+            <label class="form-label">ProjectId</label>
+            <input id="fProjectId" class="form-control" readonly />
+          </div>
+
+          <div class="mb-2">
+            <h6>Metadata</h6>
+            <table class="table" id="metaTable"><thead><tr><th>MeasurementId</th><th>Name</th><th>Units</th><th></th></tr></thead><tbody></tbody></table>
+            <button id="btnAddMeta" class="btn btn-sm btn-outline-primary">Add Measurement</button>
+          </div>
+
+          <div class="mb-2">
+            <h6>Measurement Values</h6>
+            <table class="table" id="valuesTable"><thead><tr><th>MeasurementId</th><th>Value</th></tr></thead><tbody></tbody></table>
+          </div>
+
+          <div class="d-flex">
+            <button id="btnSave" class="btn btn-success me-2">Save</button>
+            <button id="btnCancel" class="btn btn-secondary">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jstree@3.3.16/dist/jstree.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    let currentProjectId = null;
+    let currentCondition = null;
+    let isEditMode = false;
+
+    function setStatus(text) { $('#statusArea').text('Status: ' + text); }
+
+    function renderTree(projectId, data) {
+      const nodes = [];
+      const projectNodeId = 'project-' + projectId;
+      nodes.push({ id: projectNodeId, parent: '#', text: 'Project: ' + projectId, state: { opened: true } });
+      data.forEach(cond => {
+        const condId = 'cond-' + cond.id;
+        nodes.push({ id: condId, parent: projectNodeId, text: 'Condition: ' + cond.id, data: { condition: cond } });
+        nodes.push({ id: condId + '-meta', parent: condId, text: 'Metadata' });
+        (cond.metadata || []).forEach(m => {
+          nodes.push({ id: condId + '-meta-' + m.measurementId, parent: condId + '-meta', text: m.measurementName + ' (' + m.measurementId + ')' });
+        });
+        nodes.push({ id: condId + '-vals', parent: condId, text: 'MeasurementValues' });
+        (cond.measurementValues || []).forEach(v => {
+          nodes.push({ id: condId + '-vals-' + v.measurementId, parent: condId + '-vals', text: v.measurementId + ': ' + v.value });
+        });
+      });
+      const tree = $('#takeoffTree');
+      if (tree.jstree(true)) tree.jstree(true).settings.core.data = nodes, tree.jstree(true).refresh();
+      else tree.jstree({ core: { data: nodes }, plugins: ['wholerow'] });
+    }
+
+    function loadProject(projectId) {
+      if (!projectId) { currentProjectId = null; renderTree('none', []); return setStatus('no project selected'); }
+      currentProjectId = projectId;
+      setStatus('loading');
+      $.getJSON('/api/demo/projects/' + projectId + '/conditions')
+        .done(function(data) { renderTree(projectId, data); setStatus('loaded'); })
+        .fail(function() { setStatus('load failed'); alert('Failed to load conditions'); });
+    }
+
+    function refreshProjects() {
+      $.getJSON('/api/demo/projects').done(function(ids){
+        const $sel = $('#projectSelect');
+        $sel.empty();
+        $sel.append($('<option/>').val('').text('Not selected'));
+        ids.forEach(id => $sel.append($('<option/>').val(id).text(id)));
+        // if currentProjectId exists, select it
+        if (currentProjectId) $sel.val(currentProjectId);
+      }).fail(function(){ setStatus('failed to load projects'); });
+    }
+
+    function clearForm() {
+      $('#fId').val('');
+      $('#fProjectId').val(currentProjectId || '');
+      $('#metaTable tbody').empty();
+      $('#valuesTable tbody').empty();
+      currentCondition = null;
+      isEditMode = false;
+      $('#formTitle').text('Create Condition');
+    }
+
+    function populateForm(condition) {
+      currentCondition = condition;
+      $('#fId').val(condition.id);
+      $('#fProjectId').val(condition.projectId);
+      $('#metaTable tbody').empty();
+      (condition.metadata || []).forEach(m => addMetadataRow(m));
+      rebuildValuesTable();
+      isEditMode = true;
+      $('#formTitle').text('Edit Condition');
+    }
+
+    function addMetadataRow(meta) {
+      const id = meta?.measurementId || '';
+      const name = meta?.measurementName || '';
+      const units = meta?.unitsOfMeasurements || '';
+      const $tr = $(`<tr>
+        <td><input class="form-control measurementId" readonly value="${id}" /></td>
+        <td><input class="form-control measurementName" value="${name}" /></td>
+        <td><input class="form-control units" value="${units}"/></td>
+        <td><button class="btn btn-sm btn-danger btnRemoveMeta">Remove</button></td>
+      </tr>`);
+      $('#metaTable tbody').append($tr);
+    }
+
+    function rebuildValuesTable() {
+      const metas = [];
+      $('#metaTable tbody tr').each(function(){
+        const mid = $(this).find('.measurementId').val();
+        const mname = $(this).find('.measurementName').val();
+        metas.push({ measurementId: mid, measurementName: mname });
+      });
+      const valuesMap = {};
+      (currentCondition?.measurementValues || []).forEach(v => valuesMap[v.measurementId] = v.value);
+
+      $('#valuesTable tbody').empty();
+      metas.forEach(m => {
+        const mid = m.measurementId || '';
+        const val = valuesMap[mid] ?? 0;
+        const $tr = $(`<tr>
+          <td><input class="form-control valueMeasurementId" readonly value="${mid}" /></td>
+          <td><input type="number" step="any" class="form-control valueNumber" value="${val}" /></td>
+        </tr>`);
+        $('#valuesTable tbody').append($tr);
+      });
+    }
+
+    function gatherForm() {
+      const id = $('#fId').val();
+      const projectId = $('#fProjectId').val();
+      const metadata = [];
+      $('#metaTable tbody tr').each(function(){
+        const mid = $(this).find('.measurementId').val();
+        const name = $(this).find('.measurementName').val();
+        const units = $(this).find('.units').val();
+        metadata.push({ measurementId: mid, measurementName: name, unitsOfMeasurements: units });
+      });
+      const measurementValues = [];
+      $('#valuesTable tbody tr').each(function(){
+        const mid = $(this).find('.valueMeasurementId').val();
+        const val = parseFloat($(this).find('.valueNumber').val()) || 0;
+        measurementValues.push({ measurementId: mid, value: val });
+      });
+      return { id: id, projectId: projectId, metadata: metadata, measurementValues: measurementValues };
+    }
+
+    function fetchAndPopulateFromNodeId(nodeId) {
+      if (!nodeId || !nodeId.startsWith('cond-')) return;
+      const condId = nodeId.replace('cond-','');
+      const projectId = currentProjectId;
+      if (!projectId) { alert('ProjectId required'); return; }
+      setStatus('loading condition');
+      $.getJSON('/api/demo/projects/' + projectId + '/conditions/' + condId)
+        .done(function(cond){ populateForm(cond); setStatus('condition loaded'); })
+        .fail(function(){ setStatus('load condition failed'); alert('Failed to load condition from server'); });
+    }
+
+    $(function(){
+      refreshProjects();
+
+      $('#projectSelect').change(function(){
+        const val = $(this).val();
+        if (!val) { loadProject(null); } else { loadProject(val); }
+      });
+
+      $('#btnAddCondition').click(function(){
+        // prepare form with new condition id
+        $.post('/api/demo/guids').done(function(condGuid){
+          clearForm();
+          $('#fId').val(condGuid);
+          const sel = $('#projectSelect').val();
+          if (sel) {
+            // use existing selected project
+            $('#fProjectId').val(sel);
+            addMetadataRow({ measurementId: '', measurementName: '', unitsOfMeasurements: '' });
+          } else {
+            // create a new project id and select it
+            $.post('/api/demo/guids').done(function(projGuid){
+              // add to dropdown and select
+              const $sel = $('#projectSelect');
+              $sel.append($('<option/>').val(projGuid).text(projGuid));
+              $sel.val(projGuid);
+              $('#fProjectId').val(projGuid);
+              // load project (empty) and add initial metadata row
+              loadProject(projGuid);
+              addMetadataRow({ measurementId: '', measurementName: '', unitsOfMeasurements: '' });
+            }).fail(function(){ alert('Failed to get project guid'); });
+          }
+        }).fail(function(){ alert('Failed to get guid'); });
+      });
+
+      $('#takeoffTree').on('select_node.jstree', function(e, data){
+        const node = data.node;
+        if (node && node.id.startsWith('cond-')) {
+          fetchAndPopulateFromNodeId(node.id);
+        }
+      });
+
+      $('#btnEditCondition').click(function(){
+        const sel = $('#takeoffTree').jstree('get_selected');
+        if (!sel || !sel.length) return alert('Select a condition node');
+        const nodeId = sel[0];
+        if (!nodeId.startsWith('cond-')) return alert('Select a condition node');
+        fetchAndPopulateFromNodeId(nodeId);
+      });
+
+      $('#btnDeleteCondition').click(function(){
+        const sel = $('#takeoffTree').jstree('get_selected');
+        if (!sel || !sel.length) return alert('Select a condition node');
+        const nodeId = sel[0];
+        if (!nodeId.startsWith('cond-')) return alert('Select a condition node');
+        const condId = nodeId.replace('cond-','');
+        const projectId = currentProjectId;
+        if (!projectId) return alert('ProjectId required');
+        setStatus('deleting');
+        $.ajax({ url: '/api/demo/projects/' + projectId + '/conditions/' + condId, method: 'DELETE' })
+          .done(function(){ setStatus('deleted'); loadProject(projectId); refreshProjects(); })
+          .fail(function(){ setStatus('delete failed'); alert('Delete failed'); });
+      });
+
+      $('#btnAddMeta').click(function(){
+        // generate measurement id from server
+        $.post('/api/demo/guids').done(function(guid){ addMetadataRow({ measurementId: guid, measurementName: '', unitsOfMeasurements: '' }); rebuildValuesTable(); })
+          .fail(function(){ alert('Failed to get guid'); });
+      });
+
+      $('#metaTable').on('click', '.btnRemoveMeta', function(){
+        $(this).closest('tr').remove(); rebuildValuesTable();
+      });
+
+      $('#metaTable').on('input', '.measurementName, .units', function(){ rebuildValuesTable(); });
+
+      $('#btnCancel').click(function(){ clearForm(); });
+
+      $('#btnSave').click(function(){
+        const model = gatherForm();
+        if (!model.projectId) return alert('ProjectId required');
+        if (!model.id) return alert('Id required');
+        setStatus('saving');
+        const url = '/api/demo/conditions' + (isEditMode ? ('/' + model.id) : '');
+        const method = isEditMode ? 'PUT' : 'POST';
+        $.ajax({ url: url, method: method, contentType: 'application/json', data: JSON.stringify(model) })
+          .done(function(){ setStatus('saved'); loadProject(model.projectId); refreshProjects(); clearForm(); })
+          .fail(function(){ setStatus('save failed'); alert('Save failed'); });
+      });
+
+      // initial state
+      clearForm();
+      setStatus('ready');
+    });
+  </script>
+</body>
+</html>
