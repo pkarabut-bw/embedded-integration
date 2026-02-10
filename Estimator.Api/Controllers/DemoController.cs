@@ -9,10 +9,12 @@ namespace Estimator.Api.Controllers
     public class DemoController : ControllerBase
     {
         private readonly EstimatorDataStore _store;
+        private readonly TakeoffClient _client;
 
-        public DemoController(EstimatorDataStore store)
+        public DemoController(EstimatorDataStore store, TakeoffClient client)
         {
             _store = store;
+            _client = client;
         }
 
         [HttpGet("projects")]
@@ -29,6 +31,15 @@ namespace Estimator.Api.Controllers
             return Ok(list);
         }
 
+        [HttpPost("snapshot/pull")]
+        public async Task<ActionResult<List<Condition>>> Pull([FromBody] ProjectRequest req)
+        {
+            if (req.ProjectId == Guid.Empty) return BadRequest();
+            var snapshot = await _client.GetAllConditionsAsync(req.ProjectId);
+            _store.ReplaceAll(req.ProjectId, snapshot);
+            return Ok(snapshot);
+        }
+
         [HttpGet("projects/{projectId:guid}/conditions/{conditionId:guid}")]
         public ActionResult<Condition> Get(Guid projectId, Guid conditionId)
         {
@@ -36,5 +47,7 @@ namespace Estimator.Api.Controllers
             if (c is null) return NotFound();
             return Ok(c);
         }
+
+        public class ProjectRequest { public Guid ProjectId { get; set; } }
     }
 }

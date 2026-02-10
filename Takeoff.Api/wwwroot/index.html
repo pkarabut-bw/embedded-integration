@@ -67,24 +67,6 @@
 
     function setStatus(text) { $('#statusArea').text('Status: ' + text); }
 
-    const guidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-    function isConditionNodeId(id) {
-      if (!id || !id.startsWith('cond-')) return false;
-      const rest = id.substring(5);
-      return guidRegex.test(rest);
-    }
-
-    function resolveConditionNodeId(node) {
-      if (!node) return null;
-      if (isConditionNodeId(node.id)) return node.id;
-      if (node.parents && node.parents.length) {
-        for (const p of node.parents) {
-          if (isConditionNodeId(p)) return p;
-        }
-      }
-      return null;
-    }
-
     function renderTree(projectId, data) {
       const nodes = [];
       const projectNodeId = 'project-' + projectId;
@@ -266,6 +248,25 @@
       clearForm();
       setStatus('ready');
     });
+
+    // helper used by selection handlers
+    const guidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
+    function isConditionNodeId(id) {
+      if (!id || !id.startsWith('cond-')) return false;
+      const rest = id.substring(5);
+      return guidRegex.test(rest);
+    }
+
+    function resolveConditionNodeId(node) {
+      if (!node) return null;
+      if (isConditionNodeId(node.id)) return node.id;
+      if (node.parents && node.parents.length) {
+        for (const p of node.parents) {
+          if (isConditionNodeId(p)) return p;
+        }
+      }
+      return null;
+    }
   </script>
 </body>
 </html>

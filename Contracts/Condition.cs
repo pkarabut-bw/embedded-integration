@@ -10,10 +10,6 @@
 
         public Guid ProjectId { get; set; }
 
-        /// <summary>
-        /// In case of callback - only changed measurements
-        /// In case of snapshot - all possible measurements
-        /// </summary>
         public List<Measurement> Measurements { get; set; }
     }
 }

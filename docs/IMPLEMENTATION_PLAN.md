@@ -104,9 +104,9 @@ Location: `Estimator.Api/Services/EstimatorDataStore.cs`
    - `ReplaceAll(projectId, snapshot)`
    - `UpsertByCallback(changedCondition)`
    - `Delete(projectId, conditionId)`
-3. Implement merge algorithm exactly per `DETAILED_SPEC.md`:
-   - replace `Metadata`
-   - update/add measurement values by `MeasurementId`
+3. Implement merge algorithm per `DETAILED_SPEC.md`:
+   - `UpsertByCallback` should match measurements by `MeasurementName` and update/add accordingly.
+   - At the end of the merge, replace the existing condition measurements with the incoming set (any existing measurements not present in the incoming list are removed).
 
 Deliverables:
 - Store services registered as singletons in both `Program.cs`.
@@ -122,15 +122,14 @@ Location: `Takeoff.Api/Services/EstimatorClient.cs`
 2. Implement:
    - `SendConditionChangedAsync(Condition condition)` -> `POST /api/interactions/condition-changed`
    - `SendConditionDeletedAsync(Guid projectId, Guid conditionId)` -> `POST /api/interactions/condition-deleted`
-3. Create request DTO for delete:
-   - `ConditionDeleteRequest { Guid ProjectId; Guid ConditionId; }`
+3. Create request DTO for delete if needed.
 
 ### 7.2 Estimator -> Takeoff: `TakeoffClient`
 Location: `Estimator.Api/Services/TakeoffClient.cs`
 
 1. Configure typed `HttpClient` similarly.
 2. Implement:
-   - `GetAllConditionsAsync(Guid projectId)` -> `GET /api/demo/projects/{projectId}/conditions`
+   - `GetAllConditionsAsync(Guid projectId)` -> `GET /api/demo/projects/{projectId}/conditions` (Takeoff DemoController)
 
 Deliverables:
 - Typed clients registered via `AddHttpClient<TClient>()`.
@@ -147,7 +146,7 @@ Location: `Takeoff.Api/Controllers/DemoController.cs`
 Routes base: `api/demo`
 
 Implement endpoints:
-1. `GET /api/demo/projects/{projectId}/conditions`
+1. `GET /api/demo/projects/{projectId}/conditions` (snapshot read for peers and UI)
 2. `GET /api/demo/projects/{projectId}/conditions/{conditionId}`
 3. `POST /api/demo/conditions`
 4. `PUT /api/demo/conditions/{conditionId}`
@@ -164,6 +163,7 @@ Location: `Takeoff.Api/Controllers/InteractionsController.cs`
 Routes base: `api/interactions`
 
 Implement:
+- `GET /api/interactions/projects/{projectId}/conditions` (optional read alias)
 - `GET /api/interactions/health`
 
 
@@ -174,18 +174,18 @@ Location: `Estimator.Api/Controllers/DemoController.cs`
 Routes base: `api/demo`
 
 Implement endpoints (read-only):
-1. `GET /api/demo/projects/{projectId}/conditions`
-2. `GET /api/demo/projects/{projectId}/conditions/{conditionId}`
+1. `GET api/demo/projects/{projectId:guid}/conditions` (returns Estimator-stored conditions)
+2. `GET api/demo/projects/{projectId:guid}/conditions/{conditionId:guid}`
+3. `POST api/demo/snapshot/pull` (Estimator-side snapshot pull which calls Takeoff)
 
 #### 8.2.2 `InteractionsController`
 Location: `Estimator.Api/Controllers/InteractionsController.cs`
 Routes base: `api/interactions`
 
 Implement endpoints:
-1. `POST /api/interactions/snapshot/pull` (body `{ projectId }`)
-2. `POST /api/interactions/condition-changed` (body `Condition`)
-3. `POST /api/interactions/condition-deleted` (body `{ projectId, conditionId }`)
-4. `GET /api/interactions/health`
+1. `POST api/interactions/condition-changed` (body `Condition`)
+2. `POST api/interactions/condition-deleted` (body `{ projectId, conditionId }`)
+3. `GET api/interactions/health`
 
 Algorithm requirements:
 - `snapshot/pull` calls `TakeoffClient.GetAllConditionsAsync` then `EstimatorDataStore.ReplaceAll`.
@@ -222,11 +222,10 @@ Implement:
    - Selecting a condition populates the form
 3. Forms (no dialogs):
    - Create/Edit modes
-   - Metadata table with add/remove measurement rows
-   - Measurement values table aligned to metadata
+   - Measurements table with add/remove measurement rows
 4. GUID handling:
    - Never allow typing GUIDs
-   - Call `POST /api/demo/guids` to generate `Id`, `MeasurementId`, and optionally `ProjectId`
+   - Call `POST /api/demo/guids` to generate `Id` and optionally `ProjectId`
 5. API calls:
    - Load: `GET /api/demo/projects/{projectId}/conditions`
    - Create: `POST /api/demo/conditions`
@@ -242,13 +241,13 @@ Location:
 
 Implement:
 1. Top toolbar:
-   - “Get All Conditions from Takeoff” button
+   - "Get All Conditions from Takeoff" button
    - ProjectId display/selector
    - Status banner
 2. Read-only TreeView:
    - Uses `jsTree`
 3. Sync behavior:
-   - On button click: `POST /api/interactions/snapshot/pull` with `{ projectId }`
+   - On button click: `POST /api/demo/snapshot/pull` with `{ projectId }` (on Estimator)
    - Reload tree from response
 
 Deliverables:
@@ -279,12 +278,12 @@ Deliverables:
 2. In Takeoff UI:
    - Create a condition
    - Verify Estimator receives and stores via callback
-3. Modify condition metadata + some measurement values:
-   - Verify Estimator merges correctly (metadata replaced, values updated by measurement id)
+3. Modify condition measurements + some measurement values:
+   - Verify Estimator merges correctly (measurements replaced with incoming set matched by name)
 4. Delete a condition:
    - Verify Estimator removes it
 5. In Estimator UI:
-   - Click “Get All Conditions from Takeoff”
+   - Click "Get All Conditions from Takeoff" (Estimator invokes `POST /api/demo/snapshot/pull`)
    - Verify snapshot replace
 
 ### 11.3 UI validation

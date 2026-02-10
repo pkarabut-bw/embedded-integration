@@ -17,15 +17,6 @@ namespace Estimator.Api.Controllers
             _store = store;
         }
 
-        [HttpPost("snapshot/pull")]
-        public async Task<ActionResult<List<Condition>>> Pull([FromBody] ProjectRequest req)
-        {
-            if (req.ProjectId == Guid.Empty) return BadRequest();
-            var snapshot = await _client.GetAllConditionsAsync(req.ProjectId);
-            _store.ReplaceAll(req.ProjectId, snapshot);
-            return Ok(snapshot);
-        }
-
         [HttpPost("condition-changed")]
         public ActionResult<Condition> ConditionChanged([FromBody] Condition condition)
         {

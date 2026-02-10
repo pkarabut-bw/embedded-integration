@@ -45,11 +45,10 @@
         (cond.measurements || []).forEach((v, i) => {
           const name = v?.measurementName || '';
           const units = v?.unitsOfMeasurements || '';
-          const val = (v && typeof v.value !== 'undefined') ? v.value : 0;
           // create a stable node id using condition id + index + encoded name
-          const safeName = encodeURIComponent(name || '').replace(/%/g, '');
+          const safeName = encodeURIComponent(name).replace(/%/g, '');
           const nodeId = `${valsNodeId}-${i}-${safeName}`;
-          const displayText = (name || '<unnamed>') + (units ? ' (' + units + ')' : '') + ': ' + val;
+          const displayText = (name || '<unnamed>') + (units ? ' (' + units + ')' : '') + ': ' + (v?.value ?? 0);
           nodes.push({ id: nodeId, parent: valsNodeId, text: displayText });
         });
       });
@@ -94,7 +93,8 @@
 
       function doPull(projectId) {
         setStatus('pulling...');
-        $.ajax({ url: '/api/interactions/snapshot/pull', method: 'POST', contentType: 'application/json', data: JSON.stringify({ projectId: projectId }) })
+        // call Estimator's demo snapshot pull endpoint (which will request Takeoff)
+        $.ajax({ url: '/api/demo/snapshot/pull', method: 'POST', contentType: 'application/json', data: JSON.stringify({ projectId: projectId }) })
           .done(function(data){ renderTree(projectId, data); setStatus('pulled at ' + new Date().toLocaleTimeString()); refreshProjects(projectId); })
           .fail(function(){ setStatus('pull failed'); alert('Failed to pull snapshot'); });
       }
@@ -102,9 +102,8 @@
       $('#btnPullSnapshot').click(function(){
         let projectId = $('#projectSelect').val();
         if (!projectId) {
-          // prompt user to enter or generate project id
           const input = prompt('ProjectId not selected. Enter a project id or leave empty to generate a new one:');
-          if (input === null) return; // user cancelled
+          if (input === null) return;
           if (!input) {
             // generate new project id from server
             $.post('/api/demo/guids').done(function(guid){
@@ -131,4 +130,4 @@
     });
   </script>
 </body>
-</html>
+</html></html>

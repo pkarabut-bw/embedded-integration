@@ -1,30 +1,56 @@
-# Embedded Integration - Takeoff & Estimator
+# Embedded Integration
 
-This repository contains two sample services demonstrating a simple handoff of user-driven "takeoff" actions from a Takeoff app to an Estimator service.
+Small sample solution demonstrating two cooperating ASP.NET Core Web APIs:
+- `Takeoff.Api` — owns `TakeoffData` and provides a jQuery UI for CRUD on `Condition` objects.
+- `Estimator.Api` — owns `EstimatorData` and can pull snapshots from Takeoff or receive callbacks.
 
-## Projects
-- `Contracts`: shared DTOs (`Quantity`, `Measurement`, `TakeoffAction`, etc.)
-- `Takeoff`: interactive editor that records validated actions and can send them to Estimator
-- `Estimator`: processes incoming Takeoff action lists and applies business semantics to a local state
-- `Validation`: server-side business validation rules used by Takeoff
+Targets: .NET 9
 
-## Running locally
-1. Open the solution in Visual Studio or use `dotnet run` from project folders.
-2. Start the `Takeoff` project. It serves a client at `state-editor.html`.
-3. Start the `Estimator` project. It serves a read-only client at `state-viewer.html`.
+Quick start
+- Run both projects (in Visual Studio choose each project and Start) or run them from the project folders.
+- Default local HTTPS ports used by the sample:
+  - Takeoff: `https://localhost:5001/` (HTTP `http://localhost:5000/`)
+  - Estimator: `https://localhost:5002/` (HTTP `http://localhost:5003/`)
 
-## Configuration
-- Configure remote service URLs in `appsettings.json` or environment variables:
-  - `Estimator:BaseUrl` in Takeoff to point to Estimator.
-  - `Takeoff:BaseUrl` in Estimator to point to Takeoff.
+UIs
+- Takeoff UI: `https://localhost:5001/index.html`
+- Estimator UI: `https://localhost:5002/index.html`
 
-## Important files
-- `Takeoff/wwwroot/state-editor.html` — client UI for editing and recording takeoff actions
-- `Estimator/wwwroot/state-viewer.html` — read-only viewer that shows Estimator state
-- `Validation/TakeoffValidator.cs` — business rules enforced in Takeoff
-- `Takeoff/Controllers/StateController.cs` — endpoints to manipulate state and send actions to Estimator
-- `Estimator/Controllers/QuantitiesController.cs` — endpoint to receive and apply action lists
-- `docs/takeoff-estimator-interaction.txt` — business-focused interaction description
+Configuration
+- Peer service base URLs are configured in each app `appsettings.json` under the `PeerServices` section:
+  - `Takeoff.Api/appsettings.json` contains `PeerServices:EstimatorBaseUrl` (defaults to `https://localhost:5002/`).
+  - `Estimator.Api/appsettings.json` contains `PeerServices:TakeoffBaseUrl` (defaults to `https://localhost:5001/`).
 
-## Notes
-- This is a demo for local development. For production use add persistence, authentication, robust error handling, and observability.
+Important API endpoints (Takeoff)
+- `GET  /api/demo/projects` — list known project ids
+- `GET  /api/demo/projects/{projectId}/conditions` — list conditions for a project (snapshot)
+- `GET  /api/demo/projects/{projectId}/conditions/{conditionId}` — get single condition
+- `POST /api/demo/conditions` — create condition
+- `PUT  /api/demo/conditions/{conditionId}` — update condition
+- `DELETE /api/demo/projects/{projectId}/conditions/{conditionId}` — delete condition
+- `POST /api/demo/guids` — returns a new GUID (used by UIs)
+
+Important API endpoints (Estimator)
+- `POST /api/interactions/snapshot/pull` — request Takeoff snapshot for a project
+- `POST /api/interactions/condition-changed` — receive single-condition callback from Takeoff
+- `POST /api/interactions/condition-deleted` — receive delete callback
+
+Contracts (important)
+- `Condition` exposes `Measurements : List<Measurement>`.
+- `Measurement` has:
+  - `MeasurementName` (string)
+  - `UnitsOfMeasurements` (string)
+  - `Value` (double)
+
+Estimator merge behavior
+- When a `Condition` callback arrives at Estimator, Estimator replaces the `Measurements` on the existing condition with the set received from Takeoff (matching by `MeasurementName`). Measurements not present in the incoming payload are removed.
+
+UI notes
+- UIs are implemented with jQuery and `jsTree` and are served from each API's `wwwroot/index.html`.
+- Project selection dropdowns are available; UIs can generate project GUIDs via the `POST /api/demo/guids` endpoint.
+
+Developer tips
+- If browser blocks local HTTPS, trust dev certs: `dotnet dev-certs https --trust`.
+- Ports are configured in `Properties/launchSettings.json` for each API.
+
+If you want, I can add examples of curl commands, Docker compose, or a developer script to run both services concurrently.
