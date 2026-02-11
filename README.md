@@ -21,36 +21,48 @@ Configuration
   - `Takeoff.Api/appsettings.json` contains `PeerServices:EstimatorBaseUrl` (defaults to `https://localhost:5002/`).
   - `Estimator.Api/appsettings.json` contains `PeerServices:TakeoffBaseUrl` (defaults to `https://localhost:5001/`).
 
-Important API endpoints (Takeoff)
-- `GET  /api/demo/projects` — list known project ids
-- `GET  /api/demo/projects/{projectId}/conditions` — list conditions for a project (snapshot)
-- `GET  /api/demo/projects/{projectId}/conditions/{conditionId}` — get single condition
-- `POST /api/demo/conditions` — create condition
-- `PUT  /api/demo/conditions/{conditionId}` — update condition
-- `DELETE /api/demo/projects/{projectId}/conditions/{conditionId}` — delete condition
-- `POST /api/demo/guids` — returns a new GUID (used by UIs)
+API endpoints (grouped by controller)
 
-Important API endpoints (Estimator)
-- `POST /api/interactions/snapshot/pull` — request Takeoff snapshot for a project
-- `POST /api/interactions/condition-changed` — receive single-condition callback from Takeoff
-- `POST /api/interactions/condition-deleted` — receive delete callback
+Takeoff.Api
 
-Contracts (important)
+- `DemoController`
+  - `GET  /api/demo/projects` — list known project ids
+  - `GET  /api/demo/projects/{projectId}/conditions` — list conditions for a project (snapshot)
+  - `GET  /api/demo/projects/{projectId}/conditions/{conditionId}` — get single condition
+  - `POST /api/demo/conditions` — create condition
+  - `PUT  /api/demo/conditions/{conditionId}` — update condition
+  - `DELETE /api/demo/projects/{projectId}/conditions/{conditionId}` — delete condition
+  - `POST /api/demo/guids` — returns a new GUID (used by UIs)
+
+- `InteractionsController` (programmatic cross-service endpoints)
+  - `GET  /api/interactions/projects/{projectId}/conditions` — return the current list of `Condition` instances for the specified project (used by Estimator snapshot pulls)
+  - `GET  /api/interactions/health` — simple health check
+
+Estimator.Api
+
+- `DemoController` (Estimator local/read APIs and snapshot pull)
+  - `GET  /api/demo/projects` — list project ids known to Estimator
+  - `GET  /api/demo/projects/{projectId}/conditions` — return Estimator-stored conditions for a project
+  - `GET  /api/demo/projects/{projectId}/conditions/{conditionId}` — return single condition from Estimator store
+  - `POST /api/demo/snapshot/pull` — Estimator initiates a snapshot pull from Takeoff for a project
+
+- `InteractionsController` (callbacks from Takeoff)
+  - `POST /api/interactions/condition-changed` — receive single-condition callback from Takeoff
+  - `POST /api/interactions/condition-deleted` — receive delete callback from Takeoff
+  - `GET  /api/interactions/health` — simple health check
+
+Contracts
 - `Condition` exposes `Measurements : List<Measurement>`.
 - `Measurement` has:
   - `MeasurementName` (string)
   - `UnitsOfMeasurements` (string)
   - `Value` (double)
 
+Docs and diagrams
+- Interaction API docs: `docs/INTERACTIONS.md`
+- Production-oriented spec: `docs/PRODUCTION_SPEC.md`
+- Contracts diagrams: `docs/CONTRACTS_DIAGRAMS.md`
+- Demo project spec: `Contracts/sample_project_spec.md`
+
 Estimator merge behavior
-- When a `Condition` callback arrives at Estimator, Estimator replaces the `Measurements` on the existing condition with the set received from Takeoff (matching by `MeasurementName`). Measurements not present in the incoming payload are removed.
-
-UI notes
-- UIs are implemented with jQuery and `jsTree` and are served from each API's `wwwroot/index.html`.
-- Project selection dropdowns are available; UIs can generate project GUIDs via the `POST /api/demo/guids` endpoint.
-
-Developer tips
-- If browser blocks local HTTPS, trust dev certs: `dotnet dev-certs https --trust`.
-- Ports are configured in `Properties/launchSettings.json` for each API.
-
-If you want, I can add examples of curl commands, Docker compose, or a developer script to run both services concurrently.
+- When a `Condition` callback arrives at Estimator, Estimator updates its condition measurements by matching `MeasurementName`. The current demo implementation replaces the stored condition's `Measurements` with the incoming set (measurements not present in the incoming payload are removed). Production implementations should consider idempotency and ordering.
