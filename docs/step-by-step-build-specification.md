@@ -10,9 +10,9 @@ Create a blank .NET solution with three projects:
 
 ```
 EmbeddedIntegration.sln
-??? Contracts/          (Class Library, net9.0)
-??? Takeoff.Api/        (ASP.NET Core Web API, net9.0)
-??? Estimator.Api/      (ASP.NET Core Web API, net9.0)
+- Contracts/          (Class Library, net9.0)
+- Takeoff.Api/        (ASP.NET Core Web API, net9.0)
+- Estimator.Api/      (ASP.NET Core Web API, net9.0)
 ```
 
 Both API projects reference `Contracts`. Enable `ImplicitUsings` and `Nullable` in all three projects.
@@ -199,7 +199,7 @@ namespace Estimator.Api.Options
 
 Create `Takeoff.Api/Services/TakeoffDataStore.cs`.
 
-This is a singleton, thread-safe (using `lock`) in-memory store backed by `Dictionary<Guid, List<Condition>>` (projectId ? conditions).
+This is a singleton, thread-safe (using `lock`) in-memory store backed by `Dictionary<Guid, List<Condition>>` (projectId → conditions).
 
 ### Public Methods
 
@@ -227,7 +227,7 @@ In the constructor, call `InitializeSampleData()`:
 1. Generate 1 project ID, 3 document IDs, 9 page IDs, 12 zone IDs.
 2. Define 4 quantity sets (see Demo Application Specification §4.1).
 3. Create 4 conditions, each sharing the same document/page/zone IDs but with different quantity names.
-4. Each condition has 3 documents ? 3 pages. Pages have 1 or 2 zones each. Zone values generated with `GenerateZoneQuantities(quantitySet, baseMultiplier, scaleFactor)`.
+4. Each condition has 3 documents × 3 pages. Pages have 1 or 2 zones each. Zone values generated with `GenerateZoneQuantities(quantitySet, baseMultiplier, scaleFactor)`.
 5. Call `ComputeSummaries()` on each condition.
 6. Store all conditions under the project ID.
 
@@ -235,7 +235,7 @@ In the constructor, call `InitializeSampleData()`:
 
 ---
 
-## Step 6 — EstimatorClient (Takeoff ? Estimator HTTP Client)
+## Step 6 — EstimatorClient (Takeoff → Estimator HTTP Client)
 
 Create `Takeoff.Api/Services/EstimatorClient.cs`.
 
@@ -265,7 +265,7 @@ Route: `api/interactions`. Inject `TakeoffDataStore`.
 
 | Method | Path | Action |
 |--------|------|--------|
-| `GET` | `projects/{projectId:guid}/conditions` | `_store.GetAll(projectId)` ? `Ok(list)` |
+| `GET` | `projects/{projectId:guid}/conditions` | `_store.GetAll(projectId)` → `Ok(list)` |
 | `GET` | `health` | `Ok("ok")` |
 
 **Verify:** Takeoff.Api compiles.
@@ -291,7 +291,7 @@ Include nested DTOs: `ProjectRequest`, `ProjectDataDto`.
 Configure the host:
 
 1. `Configure<PeerServicesOptions>` from `"PeerServices"` config section.
-2. `AddControllers()` with `AddJsonOptions` ? camelCase naming, case-insensitive deserialization.
+2. `AddControllers()` with `AddJsonOptions` — camelCase naming, case-insensitive deserialization.
 3. `AddSingleton<TakeoffDataStore>()`.
 4. `AddHttpClient<EstimatorClient>` configured with base URL and timeout from options. Use `.AddTypedClient` to construct with `ILogger`.
 5. `UseDefaultFiles()`.
@@ -327,14 +327,14 @@ Singleton, thread-safe, `Dictionary<Guid, List<Condition>>`.
 ### UpsertByCallback Merge Logic
 
 For each incoming condition:
-1. If condition doesn't exist locally ? insert clone.
-2. If condition exists ? merge documents by ID:
-   - New document ? add clone.
-   - Existing document ? overwrite `DocumentSummary`, merge pages by ID:
-     - New page ? add clone.
-     - Existing page ? overwrite `PageSummary`, merge zones by ID:
-       - New zone ? add clone.
-       - Existing zone ? overwrite `ZoneSummary`.
+1. If condition doesn't exist locally → insert clone.
+2. If condition exists → merge documents by ID:
+   - New document → add clone.
+   - Existing document → overwrite `DocumentSummary`, merge pages by ID:
+     - New page → add clone.
+     - Existing page → overwrite `PageSummary`, merge zones by ID:
+       - New zone → add clone.
+       - Existing zone → overwrite `ZoneSummary`.
 3. **Always** overwrite `existing.ProjectSummary` with `changed.ProjectSummary`.
 
 ### Private Methods
@@ -347,7 +347,7 @@ For each incoming condition:
 
 ---
 
-## Step 11 — TakeoffClient (Estimator ? Takeoff HTTP Client)
+## Step 11 — TakeoffClient (Estimator → Takeoff HTTP Client)
 
 Create `Estimator.Api/Services/TakeoffClient.cs`.
 
@@ -378,11 +378,11 @@ Route: `api/interactions`. Inject `TakeoffClient` and `EstimatorDataStore`.
 
 | Method | Path | Action |
 |--------|------|--------|
-| `POST` | `condition-changed` | Body: `List<Condition>` ? `_store.UpsertByCallback()` ? `Ok(result)` |
-| `POST` | `condition-deleted` | Body: `{ projectId, conditionId }` ? delete locally ? pull project snapshot from Takeoff ? replace local data |
-| `POST` | `document-deleted` | Body: `{ projectId, documentId }` ? delete locally ? pull project snapshot |
-| `POST` | `page-deleted` | Body: `{ projectId, pageId }` ? delete locally ? pull project snapshot |
-| `POST` | `takeoffzone-deleted` | Body: `{ projectId, zoneId }` ? delete locally ? pull project snapshot |
+| `POST` | `condition-changed` | Body: `List<Condition>` → `_store.UpsertByCallback()` → `Ok(result)` |
+| `POST` | `condition-deleted` | Body: `{ projectId, conditionId }` → delete locally → pull project snapshot from Takeoff → replace local data |
+| `POST` | `document-deleted` | Body: `{ projectId, documentId }` → delete locally → pull project snapshot |
+| `POST` | `page-deleted` | Body: `{ projectId, pageId }` → delete locally → pull project snapshot |
+| `POST` | `takeoffzone-deleted` | Body: `{ projectId, zoneId }` → delete locally → pull project snapshot |
 | `GET` | `health` | `Ok("ok")` |
 
 **Post-deletion snapshot pull** is wrapped in try/catch — failure is logged but does not affect the deletion response.
@@ -417,7 +417,7 @@ Implement endpoints listed in Demo Application Specification §5.3.
 Configure the host:
 
 1. `Configure<PeerServicesOptions>` from `"PeerServices"` config section.
-2. `AddControllers()` with `AddJsonOptions` ? camelCase naming, case-insensitive deserialization.
+2. `AddControllers()` with `AddJsonOptions` — camelCase naming, case-insensitive deserialization.
 3. `AddSingleton<EstimatorDataStore>()`.
 4. `AddHttpClient<TakeoffClient>` configured with base URL and timeout from options. Use `.AddTypedClient` to construct with `ILogger`.
 5. `UseDefaultFiles()`.
@@ -459,10 +459,10 @@ Build the Estimator UI as specified in Demo Application Specification §5.4:
 
 - Include Bootstrap 5, jQuery, jsTree from CDN.
 - Two-column layout: tree (left), read-only info panel (right).
-- "Pull Snapshot from Takeoff" button ? `POST /api/demo/pull-snapshot`, then refresh from `GET /api/demo/all-conditions`.
+- "Pull Snapshot from Takeoff" button — `POST /api/demo/pull-snapshot`, then refresh from `GET /api/demo/all-conditions`.
 - Auto-polling every 500ms on `GET /api/demo/all-conditions`. Change detection by comparing full `JSON.stringify` output.
 - Tree with emoji icons. Root node "All Projects" has no icon (CSS override on `#all-projects`). Data grouped by project.
-- On node select: show read-only detail card (Condition ? ProjectSummary, Document ? DocumentSummary, Page ? PageSummary + PageNumber, Zone ? ZoneSummary).
+- On node select: show read-only detail card (Condition — ProjectSummary, Document — DocumentSummary, Page — PageSummary + PageNumber, Zone — ZoneSummary).
 - Stable numbering using same client-side dictionary approach as Takeoff.
 
 **Verify:** Both services run. Pull Snapshot works. Changes in Takeoff are reflected in Estimator via callbacks + polling.
@@ -475,9 +475,9 @@ Test the following scenarios manually:
 
 1. **Initial load:** Takeoff UI shows 4 conditions with correct summaries.
 2. **Pull Snapshot:** Estimator pulls data, tree matches Takeoff.
-3. **Edit zone value:** In Takeoff, change a zone quantity value ? Save. Takeoff summaries update. Estimator updates via callback + polling within 0.5s.
-4. **Add quantity row:** In Takeoff, add a new row to a zone ? Save. Summaries recalculate.
-5. **Remove quantity row:** In Takeoff, remove a row ? Save. Summaries recalculate.
+3. **Edit zone value:** In Takeoff, change a zone quantity value — Save. Takeoff summaries update. Estimator updates via callback + polling within 0.5s.
+4. **Add quantity row:** In Takeoff, add a new row to a zone — Save. Summaries recalculate.
+5. **Remove quantity row:** In Takeoff, remove a row — Save. Summaries recalculate.
 6. **Delete zone:** In Takeoff, delete a zone. Summaries recalculate. Estimator receives callback, pulls snapshot, summaries match.
 7. **Delete page:** Same flow as zone deletion.
 8. **Delete document:** Same flow.

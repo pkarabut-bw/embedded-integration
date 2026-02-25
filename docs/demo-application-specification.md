@@ -10,36 +10,36 @@ This document specifies the demo application that exercises the Takeoff–Estima
 
 ```
 EmbeddedIntegration/
-??? Contracts/                        # Shared data contracts (see Integration API Specification)
-??? Takeoff.Api/
-?   ??? Controllers/
-?   ?   ??? DemoController.cs         # Demo REST endpoints for Takeoff UI
-?   ?   ??? InteractionsController.cs # Integration API endpoints (see Integration API Specification)
-?   ??? Services/
-?   ?   ??? TakeoffDataStore.cs       # In-memory store with sample data and summary computation
-?   ?   ??? EstimatorClient.cs        # HTTP client for sending callbacks to Estimator
-?   ??? Options/
-?   ?   ??? PeerServicesOptions.cs    # Configuration model
-?   ??? wwwroot/
-?   ?   ??? index.html                # Takeoff UI (SPA)
-?   ??? Program.cs                    # Host configuration
-?   ??? appsettings.json              # Configuration
-?   ??? Properties/launchSettings.json
-??? Estimator.Api/
-?   ??? Controllers/
-?   ?   ??? DemoController.cs         # Demo REST endpoints for Estimator UI
-?   ?   ??? InteractionsController.cs # Integration API endpoints (see Integration API Specification)
-?   ??? Services/
-?   ?   ??? EstimatorDataStore.cs     # In-memory store
-?   ?   ??? TakeoffClient.cs          # HTTP client for pulling data from Takeoff
-?   ??? Options/
-?   ?   ??? PeerServicesOptions.cs    # Configuration model
-?   ??? wwwroot/
-?   ?   ??? index.html                # Estimator UI (SPA)
-?   ??? Program.cs                    # Host configuration
-?   ??? appsettings.json              # Configuration
-?   ??? Properties/launchSettings.json
-??? docs/
+├── Contracts/                        # Shared data contracts (see Integration API Specification)
+├── Takeoff.Api/
+│   ├── Controllers/
+│   │   ├── DemoController.cs         # Demo REST endpoints for Takeoff UI
+│   │   └── InteractionsController.cs # Integration API endpoints (see Integration API Specification)
+│   ├── Services/
+│   │   ├── TakeoffDataStore.cs       # In-memory store with sample data and summary computation
+│   │   └── EstimatorClient.cs        # HTTP client for sending callbacks to Estimator
+│   ├── Options/
+│   │   └── PeerServicesOptions.cs    # Configuration model
+│   ├── wwwroot/
+│   │   └── index.html                # Takeoff UI (SPA)
+│   ├── Program.cs                    # Host configuration
+│   ├── appsettings.json              # Configuration
+│   └── Properties/launchSettings.json
+├── Estimator.Api/
+│   ├── Controllers/
+│   │   ├── DemoController.cs         # Demo REST endpoints for Estimator UI
+│   │   └── InteractionsController.cs # Integration API endpoints (see Integration API Specification)
+│   ├── Services/
+│   │   ├── EstimatorDataStore.cs     # In-memory store
+│   │   └── TakeoffClient.cs          # HTTP client for pulling data from Takeoff
+│   ├── Options/
+│   │   └── PeerServicesOptions.cs    # Configuration model
+│   ├── wwwroot/
+│   │   └── index.html                # Estimator UI (SPA)
+│   ├── Program.cs                    # Host configuration
+│   ├── appsettings.json              # Configuration
+│   └── Properties/launchSettings.json
+└── docs/
 ```
 
 ### Technology Stack
@@ -67,14 +67,14 @@ Estimator points to Takeoff at `https://localhost:5001/`.
 
 ### 4.1 Sample Data (TakeoffDataStore)
 
-On startup, `TakeoffDataStore` initializes one project containing **4 conditions**. All conditions share the same document/page/zone ID structure (3 documents ? 3 pages each, with 1–2 zones per page, 12 zones total).
+On startup, `TakeoffDataStore` initializes one project containing **4 conditions**. All conditions share the same document/page/zone ID structure (3 documents × 3 pages each, with 1–2 zones per page, 12 zones total).
 
 Each condition uses a unique set of quantity names and units:
 
 | Condition | Quantities |
 |-----------|-----------|
-| 1 | Length (ft), Width (ft), Height (ft), Area (ft?) |
-| 2 | Volume (ft?), SurfaceArea (ft?), Weight (lbs), Density (lbs/ft?) |
+| 1 | Length (ft), Width (ft), Height (ft), Area (ft²) |
+| 2 | Volume (ft³), SurfaceArea (ft²), Weight (lbs), Density (lbs/ft³) |
 | 3 | Distance (ft), Time (hours), Rate (ft/hr), Cost ($) |
 | 4 | Quantity (units), UnitCost ($), TotalCost ($), Markup (%) |
 
@@ -90,9 +90,9 @@ Located in `TakeoffDataStore`. Called after:
 - Any `DeleteDocument()`, `DeletePage()`, or `DeleteZone()` call
 
 Algorithm:
-1. For each page: aggregate all zone summaries grouped by `(Name, Unit)`, summing values ? `PageSummary`
-2. For each document: aggregate all page summaries ? `DocumentSummary`
-3. For the condition: aggregate all document summaries ? `ProjectSummary`
+1. For each page: aggregate all zone summaries grouped by `(Name, Unit)`, summing values → `PageSummary`
+2. For each document: aggregate all page summaries → `DocumentSummary`
+3. For the condition: aggregate all document summaries → `ProjectSummary`
 
 ### 4.3 Demo REST API (Takeoff DemoController)
 
@@ -123,29 +123,27 @@ Single-page HTML application served from `wwwroot/index.html`.
 
 **Tree structure:**
 ```
-?? Project
-  ?? Condition 1
-    ?? Document 1
-      ?? Page 1
-        ?? Zone 1
-        ?? Zone 2
-      ?? Page 2
+Project
+  Condition 1
+    Document 1
+      Page 1
+        Zone 1
+        Zone 2
+      Page 2
       ...
-    ?? Document 2
+    Document 2
     ...
-  ?? Condition 2
+  Condition 2
   ...
 ```
 
 **Features:**
 - Project selector dropdown (auto-selects first project on load)
 - Click any tree node to see its details in the right panel
-- **Condition panel:** Shows ID, ProjectId, ProjectSummary (read-only table). Buttons: Add Document, Delete Condition.
-- **Document panel:** Shows ID, DocumentSummary (read-only table). Buttons: Add Page, Delete Document.
-- **Page panel:** Shows ID, PageNumber, PageSummary (read-only table). Buttons: Add Zone, Delete Page.
-- **Zone panel:** Shows ID, ZoneSummary (editable table with Name, Unit, Value columns + remove row button). Buttons: Add Row, Save Zone, Delete Zone.
-- Stable numbering: Documents, Pages, and Zones get client-side sequential numbers that persist across tree refreshes.
-- Spinner overlay during API calls.
+- Condition / Document / Page forms show computed summaries (read-only)
+- Zone panel allows editing zone quantities (Name, Unit, Value)
+- Stable numbering for documents/pages/zones across refreshes
+- Spinner overlay during API calls
 
 **Data flow on Save Zone:**
 1. Collect zone summary rows from the form
@@ -167,7 +165,7 @@ In-memory store. Starts empty. Populated by:
 Key operations:
 - `ReplaceAllProjects(List<Condition>)` — clears and replaces all data
 - `ReplaceAll(projectId, List<Condition>)` — replaces data for a single project
-- `UpsertByCallback(List<Condition>)` — merges incoming condition data by ID at every level (condition ? document ? page ? zone); always overwrites `ProjectSummary` from the callback
+- `UpsertByCallback(List<Condition>)` — merges incoming condition data by ID at every level (condition → document → page → zone); always overwrites `ProjectSummary` from the callback
 - `Delete`, `DeleteDocument`, `DeletePage`, `DeleteTakeoffZone` — delete by ID, searching through all parent entities (no hierarchy path needed)
 
 ### 5.2 TakeoffClient
@@ -176,8 +174,8 @@ HTTP client used by Estimator to pull data from Takeoff.
 
 | Method | Description |
 |--------|-------------|
-| `GetAllProjectIdsAsync()` | `GET /api/demo/projects` ? `List<Guid>` |
-| `GetAllConditionsAsync(projectId)` | `GET /api/demo/projects/{projectId}/conditions` ? `List<Condition>` |
+| `GetAllProjectIdsAsync()` | `GET /api/demo/projects` → `List<Guid>` |
+| `GetAllConditionsAsync(projectId)` | `GET /api/demo/projects/{projectId}/conditions` → `List<Condition>` |
 | `PullSnapshotAsync()` | Gets all project IDs, then fetches conditions for each project |
 | `PullProjectSnapshotAsync(projectId)` | Fetches conditions for a single project |
 
@@ -203,27 +201,19 @@ Single-page HTML application served from `wwwroot/index.html`.
 **Tree structure:**
 ```
 All Projects
-  ?? Project: {guid}
-    ?? Condition 1
-      ?? Document 1
-        ?? Page 1
-          ?? Zone 1
+  Project: {guid}
+    Condition 1
+      Document 1
+        Page 1
+          Zone 1
           ...
 ```
 
-- Root node "All Projects" has no icon.
-- All other nodes use the same emoji icons as Takeoff.
-
 **Features:**
-- **Pull Snapshot** button: calls `POST /api/demo/pull-snapshot`, then refreshes tree from `GET /api/demo/all-conditions`.
-- **Polling**: Every 500ms, polls `GET /api/demo/all-conditions`. Compares full JSON string to detect any change. If changed, refreshes the tree and updates `allConditionsData` reference.
-- **Detail panel (read-only):**
-  - Condition: ID, ProjectId, ProjectSummary table
-  - Document: ID, DocumentSummary table
-  - Page: ID, PageNumber, PageSummary table
-  - Zone: ID, ZoneSummary table
-- Click a node in the tree to display its details in the right panel.
-- Stable numbering for documents, pages, and zones (same approach as Takeoff UI).
+- Pull Snapshot button: calls `POST /api/demo/pull-snapshot`, then refreshes tree from `GET /api/demo/all-conditions`.
+- Polling: Every 500ms, polls `GET /api/demo/all-conditions`. Compares full JSON string to detect any change; refreshes the tree when changed.
+- Read-only detail panel shows computed summaries at each level.
+- Stable numbering using client-side mapping for documents/pages/zones.
 
 ---
 
@@ -252,34 +242,33 @@ All Projects
 ### On Condition Create/Update (Takeoff)
 
 ```
-Takeoff UI ? PUT /api/demo/conditions/{id}
-  ? TakeoffDataStore.Update() ? Clone + ComputeSummaries
-  ? Return updated condition to UI
-  ? Fire-and-forget: EstimatorClient.SendConditionChangedAsync()
-    ? POST /api/interactions/condition-changed to Estimator
-      ? EstimatorDataStore.UpsertByCallback() (merge + overwrite ProjectSummary)
+Takeoff UI → PUT /api/demo/conditions/{id}
+  → TakeoffDataStore.Update() → Clone + ComputeSummaries
+  → Return updated condition to UI
+  → Fire-and-forget: EstimatorClient.SendConditionChangedAsync()
+    → POST /api/interactions/condition-changed to Estimator
+      → EstimatorDataStore.UpsertByCallback() (merge + overwrite ProjectSummary)
 ```
 
 ### On Deletion (Takeoff)
 
 ```
-Takeoff UI ? DELETE /api/demo/projects/{pid}/zones/{zid}
-  ? TakeoffDataStore.DeleteZone() ? Remove zone + ComputeSummaries
-  ? Return 204 to UI
-  ? Fire-and-forget: EstimatorClient.SendTakeoffZoneDeletedAsync()
-    ? POST /api/interactions/takeoffzone-deleted to Estimator
-      ? EstimatorDataStore.DeleteTakeoffZone()
-      ? TakeoffClient.PullProjectSnapshotAsync() ? GET /api/interactions/projects/{pid}/conditions
-      ? EstimatorDataStore.ReplaceAll() with fresh snapshot
+Takeoff UI → DELETE /api/demo/projects/{pid}/zones/{zid}
+  → TakeoffDataStore.DeleteZone() → Remove zone + ComputeSummaries
+  → Return 204 to UI
+  → Fire-and-forget: EstimatorClient.SendTakeoffZoneDeletedAsync()
+    → POST /api/interactions/takeoffzone-deleted to Estimator
+      → EstimatorDataStore.DeleteTakeoffZone()
+      → TakeoffClient.PullProjectSnapshotAsync() → GET /api/interactions/projects/{pid}/conditions
+      → EstimatorDataStore.ReplaceAll() with fresh snapshot
 ```
 
 ### On Pull Snapshot (Estimator)
 
 ```
-Estimator UI ? POST /api/demo/pull-snapshot
-  ? TakeoffClient.PullSnapshotAsync()
-    ? GET /api/demo/projects ? list of project IDs
-    ? For each project: GET /api/demo/projects/{pid}/conditions
-  ? EstimatorDataStore.ReplaceAllProjects()
-  ? Return { success, conditionCount }
-```
+Estimator UI → POST /api/demo/pull-snapshot
+  → TakeoffClient.PullSnapshotAsync()
+    → GET /api/demo/projects → list of project IDs
+    → For each project: GET /api/demo/projects/{pid}/conditions
+  → EstimatorDataStore.ReplaceAllProjects()
+  → Return { success, conditionCount }
