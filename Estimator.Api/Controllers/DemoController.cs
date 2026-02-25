@@ -48,6 +48,34 @@ namespace Estimator.Api.Controllers
             return Ok(c);
         }
 
+        [HttpPost("pull-snapshot")]
+        public async Task<IActionResult> PullSnapshot(CancellationToken ct = default)
+        {
+            try
+            {
+                var allConditions = await _client.PullSnapshotAsync(ct);
+                _store.ReplaceAllProjects(allConditions);
+                return Ok(new { Success = true, ConditionCount = allConditions.Count });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Error = ex.Message });
+            }
+        }
+
+        [HttpGet("all-conditions")]
+        public IActionResult GetAllConditions()
+        {
+            var projectIds = _store.GetProjectIds();
+            var allConditions = new List<Condition>();
+            foreach (var projectId in projectIds)
+            {
+                var conditions = _store.GetAll(projectId);
+                allConditions.AddRange(conditions);
+            }
+            return Ok(allConditions);
+        }
+
         public class ProjectRequest { public Guid ProjectId { get; set; } }
     }
 }

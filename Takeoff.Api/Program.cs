@@ -1,3 +1,4 @@
+using System;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,7 +27,20 @@ builder.Services.AddHttpClient<EstimatorClient>(client =>
 var app = builder.Build();
 // Serve default files (index.html) and static files from wwwroot
 app.UseDefaultFiles();
-app.UseStaticFiles();
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        // disable caching for index.html so browser always requests the latest copy
+        if (string.Equals(ctx.File.Name, "index.html", StringComparison.OrdinalIgnoreCase))
+        {
+            var headers = ctx.Context.Response.Headers;
+            headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0";
+            headers["Pragma"] = "no-cache";
+            headers["Expires"] = "-1";
+        }
+    }
+});
 
 app.MapControllers();
 // Ensure SPA fallback to index.html so IIS Express virtual paths serve the UI

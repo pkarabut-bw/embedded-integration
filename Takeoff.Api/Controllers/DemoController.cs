@@ -24,6 +24,38 @@ namespace Takeoff.Api.Controllers
             return Ok(ids);
         }
 
+        [HttpGet("projects/all-with-data")]
+        public ActionResult<List<ProjectDataDto>> GetAllProjectsWithData()
+        {
+            var projectIds = _store.GetProjectIds();
+            var result = new List<ProjectDataDto>();
+            foreach (var projectId in projectIds)
+            {
+                result.Add(new ProjectDataDto 
+                { 
+                    ProjectId = projectId, 
+                    Conditions = _store.GetAll(projectId).ToList() 
+                });
+            }
+            return Ok(result);
+        }
+
+        [HttpGet("projects/all")]
+        public ActionResult<List<ProjectDataDto>> GetAllProjects()
+        {
+            var projectIds = _store.GetProjectIds();
+            var result = new List<ProjectDataDto>();
+            foreach (var projectId in projectIds)
+            {
+                result.Add(new ProjectDataDto 
+                { 
+                    ProjectId = projectId, 
+                    Conditions = _store.GetAll(projectId).ToList() 
+                });
+            }
+            return Ok(result);
+        }
+
         [HttpGet("projects/{projectId:guid}/conditions")]
         public ActionResult<List<Condition>> GetAll(Guid projectId)
         {
@@ -44,10 +76,10 @@ namespace Takeoff.Api.Controllers
         {
             if (condition.ProjectId == Guid.Empty) return BadRequest("ProjectId required");
             if (condition.Id == Guid.Empty) condition.Id = Guid.NewGuid();
-            condition.Measurements ??= new List<Measurement>();
 
             var created = _store.Add(condition);
-            _client.SendConditionChangedAsync(created);
+            // fire-and-forget notification to Estimator
+            _ = _client.SendConditionChangedAsync(new List<Condition> { created });
             return Ok(created);
         }
 
@@ -55,10 +87,10 @@ namespace Takeoff.Api.Controllers
         public async Task<ActionResult<Condition>> Update(Guid conditionId, [FromBody] Condition condition)
         {
             if (conditionId != condition.Id) condition.Id = conditionId;
-            condition.Measurements ??= new List<Measurement>();
 
             var updated = _store.Update(condition);
-            _client.SendConditionChangedAsync(updated);
+            // fire-and-forget notification to Estimator
+            _ = _client.SendConditionChangedAsync(new List<Condition> { updated });
             return Ok(updated);
         }
 
@@ -67,7 +99,38 @@ namespace Takeoff.Api.Controllers
         {
             var deleted = _store.Delete(projectId, conditionId);
             if (!deleted) return NotFound();
-            _client.SendConditionDeletedAsync(projectId, conditionId);
+            // fire-and-forget notification to Estimator
+            _ = _client.SendConditionDeletedAsync(projectId, conditionId);
+            return NoContent();
+        }
+
+        [HttpDelete("projects/{projectId:guid}/documents/{documentId:guid}")]
+        public async Task<IActionResult> DeleteDocument(Guid projectId, Guid documentId)
+        {
+            var deleted = _store.DeleteDocument(projectId, documentId);
+            if (!deleted) return NotFound();
+            // fire-and-forget notification to Estimator with specific deletion endpoint
+            _ = _client.SendDocumentDeletedAsync(projectId, Guid.Empty, documentId);
+            return NoContent();
+        }
+
+        [HttpDelete("projects/{projectId:guid}/pages/{pageId:guid}")]
+        public async Task<IActionResult> DeletePage(Guid projectId, Guid pageId)
+        {
+            var deleted = _store.DeletePage(projectId, pageId);
+            if (!deleted) return NotFound();
+            // fire-and-forget notification to Estimator with specific deletion endpoint
+            _ = _client.SendPageDeletedAsync(projectId, Guid.Empty, Guid.Empty, pageId);
+            return NoContent();
+        }
+
+        [HttpDelete("projects/{projectId:guid}/zones/{zoneId:guid}")]
+        public async Task<IActionResult> DeleteZone(Guid projectId, Guid zoneId)
+        {
+            var deleted = _store.DeleteZone(projectId, zoneId);
+            if (!deleted) return NotFound();
+            // fire-and-forget notification to Estimator with specific deletion endpoint
+            _ = _client.SendTakeoffZoneDeletedAsync(projectId, Guid.Empty, Guid.Empty, Guid.Empty, zoneId);
             return NoContent();
         }
 
@@ -75,6 +138,14 @@ namespace Takeoff.Api.Controllers
         public ActionResult<Guid> NewGuid()
         {
             return Ok(Guid.NewGuid());
+        }
+
+        public class ProjectRequest { public Guid ProjectId { get; set; } }
+
+        public class ProjectDataDto 
+        { 
+            public Guid ProjectId { get; set; }
+            public List<Condition> Conditions { get; set; } = new();
         }
     }
 }

@@ -8,18 +8,71 @@
   <title>Takeoff</title>
   <style>
     body, html { height: 100%; }
-    #formPanel { height: calc(100vh - 120px); overflow:auto }
-    #takeoffTree { height: calc(100vh - 120px); overflow:auto; border:1px solid #ddd; padding:8px }
-    .table td, .table th { vertical-align: middle }
+    #formPanel { height: calc(100vh - 120px); overflow: auto; }
+    #takeoffTree { height: calc(100vh - 120px); overflow: auto; border: 1px solid #ddd; padding: 8px; }
+    .table td, .table th { vertical-align: middle; }
+    .entity-form { display: none; }
+    #spinnerOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.35); display: none; align-items: center; justify-content: center; z-index: 1050; }
+    
+    /* Custom tree icons */
+    #takeoffTree .jstree-icon.jstree-themeicon {
+      width: 0;
+      margin-right: 0;
+      background: none;
+    }
+    
+    #takeoffTree .jstree-anchor {
+      font-style: normal;
+    }
+    
+    #takeoffTree .jstree-node.project-node > .jstree-anchor::before {
+      content: '📦 ';
+      font-size: 16px;
+      margin-right: 4px;
+      font-style: normal;
+    }
+    
+    #takeoffTree .jstree-node.condition-node > .jstree-anchor::before {
+      content: '⚙️ ';
+      font-size: 16px;
+      margin-right: 4px;
+      font-style: normal;
+    }
+    
+    #takeoffTree .jstree-node.document-node > .jstree-anchor::before {
+      content: '📋 ';
+      font-size: 16px;
+      margin-right: 4px;
+      font-style: normal;
+    }
+    
+    #takeoffTree .jstree-node.page-node > .jstree-anchor::before {
+      content: '📄 ';
+      font-size: 16px;
+      margin-right: 4px;
+      font-style: normal;
+    }
+    
+    #takeoffTree .jstree-node.zone-node > .jstree-anchor::before {
+      content: '🔲 ';
+      font-size: 16px;
+      margin-right: 4px;
+      font-style: normal;
+    }
   </style>
 </head>
 <body>
+  <div id="spinnerOverlay">
+    <div class="text-center text-white">
+      <div class="spinner-border text-light" role="status" style="width:4rem;height:4rem;"></div>
+      <div class="mt-2">Working...</div>
+    </div>
+  </div>
+
   <div class="container-fluid p-2">
     <div class="d-flex mb-2">
       <div>
-        <button id="btnAddCondition" class="btn btn-primary">AddCondition</button>
-        <button id="btnEditCondition" class="btn btn-secondary">EditCondition</button>
-        <button id="btnDeleteCondition" class="btn btn-danger">DeleteCondition</button>
+        <button id="btnAddCondition" class="btn btn-primary">Add Condition</button>
       </div>
       <div class="ms-auto d-flex align-items-center">
         <select id="projectSelect" class="form-select me-2" style="width:320px;"></select>
@@ -27,31 +80,71 @@
       </div>
     </div>
     <div class="row g-2">
-      <div class="col-7">
+      <div class="col-6">
         <div id="takeoffTree"></div>
       </div>
-      <div class="col-5">
-        <div id="formPanel" class="card p-3">
-          <h5 id="formTitle">Condition</h5>
-          <div class="mb-2">
-            <label class="form-label">Id</label>
-            <input id="fId" class="form-control" readonly />
-          </div>
-          <div class="mb-2">
-            <label class="form-label">ProjectId</label>
-            <input id="fProjectId" class="form-control" readonly />
+      <div class="col-6">
+        <div id="formPanel">
+
+          <!-- Condition form -->
+          <div id="conditionForm" class="card p-3 entity-form">
+            <h5>Condition</h5>
+            <div class="mb-2"><label class="form-label">Id</label><input id="cId" class="form-control" readonly /></div>
+            <div class="mb-2"><label class="form-label">ProjectId</label><input id="cProjectId" class="form-control" readonly /></div>
+            <div class="mb-3">
+              <h6>Project Summary (computed)</h6>
+              <table class="table table-sm" id="cProjectSummary"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody></tbody></table>
+            </div>
+            <div class="d-flex">
+              <button id="cAddDocument" class="btn btn-primary me-2">Add Document</button>
+              <button id="cDeleteCondition" class="btn btn-danger">Delete Condition</button>
+            </div>
           </div>
 
-          <div class="mb-2">
-            <h6>Measurements</h6>
-            <table class="table" id="valuesTable"><thead><tr><th>Measurement Name</th><th>Units</th><th>Value</th><th></th></tr></thead><tbody></tbody></table>
-            <button id="btnAddValue" class="btn btn-sm btn-outline-primary">Add Measurement</button>
+          <!-- Document form -->
+          <div id="documentForm" class="card p-3 entity-form">
+            <h5>Document</h5>
+            <div class="mb-2"><label class="form-label">Document Id</label><input id="dId" class="form-control" readonly /></div>
+            <div class="mb-3">
+              <h6>Document Summary (computed)</h6>
+              <table class="table table-sm" id="dSummary"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody></tbody></table>
+            </div>
+            <div class="d-flex">
+              <button id="dAddPage" class="btn btn-primary me-2">Add Page</button>
+              <button id="dDeleteDocument" class="btn btn-danger">Delete Document</button>
+            </div>
           </div>
 
-          <div class="d-flex">
-            <button id="btnSave" class="btn btn-success me-2">Save</button>
-            <button id="btnCancel" class="btn btn-secondary">Cancel</button>
+          <!-- Page form -->
+          <div id="pageForm" class="card p-3 entity-form">
+            <h5>Page</h5>
+            <div class="mb-2"><label class="form-label">Page Id</label><input id="pId" class="form-control" readonly /></div>
+            <div class="mb-2"><label class="form-label">Page Number</label><input id="pNumber" type="number" class="form-control" readonly /></div>
+            <div class="mb-3">
+              <h6>Page Summary (computed)</h6>
+              <table class="table table-sm" id="pSummary"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody></tbody></table>
+            </div>
+            <div class="d-flex">
+              <button id="pAddZone" class="btn btn-primary me-2">Add Zone</button>
+              <button id="pDeletePage" class="btn btn-danger">Delete Page</button>
+            </div>
           </div>
+
+          <!-- Zone form -->
+          <div id="zoneForm" class="card p-3 entity-form">
+            <h5>Zone</h5>
+            <div class="mb-2"><label class="form-label">Zone Id</label><input id="zId" class="form-control" readonly /></div>
+            <div class="mb-3">
+              <h6>Zone Summary (editable)</h6>
+              <table class="table table-sm" id="zSummary"><thead><tr><th>Name</th><th>Unit</th><th>Value</th><th></th></tr></thead><tbody></tbody></table>
+              <button id="zAddRow" class="btn btn-sm btn-outline-primary">Add Row</button>
+            </div>
+            <div class="d-flex">
+              <button id="zSave" class="btn btn-primary me-2">Save Zone</button>
+              <button id="zDelete" class="btn btn-danger">Delete Zone</button>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -61,212 +154,436 @@
   <script src="https://cdn.jsdelivr.net/npm/jstree@3.3.16/dist/jstree.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    let currentProjectId = null;
-    let currentCondition = null;
-    let isEditMode = false;
+  (function() {
+    'use strict';
 
-    function setStatus(text) { $('#statusArea').text('Status: ' + text); }
+    // ── State ──────────────────────────────────────────────
+    var currentProjectId = null;
+    var sel = { conditionId: null, documentId: null, pageId: null, zoneId: null };
+    
+    // Client-side ID to number mappings (persisted across renders, never cleared)
+    var idToDocumentNumber = {}; // documentId -> number
+    var idToPageNumber = {}; // pageId -> number
+    var idToZoneNumber = {}; // zoneId -> number
+    var nextDocumentNumber = 1;
+    var nextPageNumber = 1;
+    var nextZoneNumber = 1;
 
+    // ── Helpers ────────────────────────────────────────────
+    function setStatus(t) { $('#statusArea').text('Status: ' + t); }
+    function showSpinner() { $('#spinnerOverlay').css('display', 'flex'); }
+    function hideSpinner() { $('#spinnerOverlay').css('display', 'none'); }
+
+    function api(opts) {
+      showSpinner();
+      return $.ajax(opts).always(function() { hideSpinner(); });
+    }
+
+    function escapeHtml(s) {
+      return String(s || '').replace(/[&<>"']/g, function(c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+
+    function qDisplayRow(q) {
+      return '<tr><td>' + escapeHtml(q.name) + '</td><td>' + escapeHtml(q.unit) + '</td><td>' + Number(q.value || 0) + '</td></tr>';
+    }
+
+    function qInputRow(q) {
+      return '<tr>' +
+        '<td><input class="form-control q-name" value="' + escapeHtml(q ? q.name : '') + '"/></td>' +
+        '<td><input class="form-control q-unit" value="' + escapeHtml(q ? q.unit : '') + '"/></td>' +
+        '<td><input type="number" step="any" class="form-control q-value" value="' + Number(q ? q.value : 0) + '"/></td>' +
+        '<td><button class="btn btn-sm btn-danger z-remove-row">X</button></td></tr>';
+    }
+
+    // ── ID to number mapping functions ──
+    function getDocumentNumber(docId) {
+      if (!idToDocumentNumber[docId]) {
+        idToDocumentNumber[docId] = nextDocumentNumber++;
+      }
+      return idToDocumentNumber[docId];
+    }
+
+    function getPageNumber(pageId) {
+      if (!idToPageNumber[pageId]) {
+        idToPageNumber[pageId] = nextPageNumber++;
+      }
+      return idToPageNumber[pageId];
+    }
+
+    function getZoneNumber(zoneId) {
+      if (!idToZoneNumber[zoneId]) {
+        idToZoneNumber[zoneId] = nextZoneNumber++;
+      }
+      return idToZoneNumber[zoneId];
+    }
+
+    // ── Forms ──────────────────────────────────────────────
+    function hideAllForms() { $('.entity-form').hide(); }
+    function showConditionForm() { hideAllForms(); $('#conditionForm').show(); }
+    function showDocumentForm() { hideAllForms(); $('#documentForm').show(); }
+    function showPageForm() { hideAllForms(); $('#pageForm').show(); }
+    function showZoneForm() { hideAllForms(); $('#zoneForm').show(); }
+
+    // ── Tree ───────────────────────────────────────────────
     function renderTree(projectId, data) {
-      const nodes = [];
-      const projectNodeId = 'project-' + projectId;
-      nodes.push({ id: projectNodeId, parent: '#', text: 'Project: ' + projectId, state: { opened: true } });
-      data.forEach(cond => {
-        const condId = 'cond-' + cond.id;
-        nodes.push({ id: condId, parent: projectNodeId, text: 'Condition: ' + cond.id, data: { condition: cond } });
-        nodes.push({ id: condId + '-vals', parent: condId, text: 'Measurements' });
-        (cond.measurements || []).forEach((v, i) => {
-          const name = v?.measurementName || '';
-          const safeName = encodeURIComponent(name).replace(/%/g, '');
-          const nodeId = `${condId}-vals-${i}-${safeName}`;
-          nodes.push({ id: nodeId, parent: condId + '-vals', text: (name || '<unnamed>') + ' (' + (v?.unitsOfMeasurements || '') + '): ' + (v?.value ?? 0) });
+      var nodes = [];
+      var pid = 'project-' + projectId;
+      nodes.push({ id: pid, parent: '#', text: 'Project', state: { opened: true }, 
+        li_attr: { class: 'project-node' } });
+      
+      // Scan data and assign numbers to any new IDs (but don't clear existing mappings)
+      (data || []).forEach(function(cond) {
+        (cond.documents || []).forEach(function(doc) {
+          getDocumentNumber(doc.id); // Ensure mapping exists
+          (doc.pages || []).forEach(function(pg) {
+            getPageNumber(pg.id); // Ensure mapping exists
+            (pg.takeoffZones || []).forEach(function(z) {
+              getZoneNumber(z.id); // Ensure mapping exists
+            });
+          });
         });
       });
-      const tree = $('#takeoffTree');
-      if (tree.jstree(true)) tree.jstree(true).settings.core.data = nodes, tree.jstree(true).refresh();
-      else tree.jstree({ core: { data: nodes }, plugins: ['wholerow'] });
+      
+      (data || []).forEach(function(cond, condIdx) {
+        var cid = 'cond-' + cond.id;
+        nodes.push({ id: cid, parent: pid, text: 'Condition ' + (condIdx + 1), state: { opened: true },
+          li_attr: { class: 'condition-node' },
+          data: { type: 'condition', condition: cond } });
+        (cond.documents || []).forEach(function(doc) {
+          var docNum = getDocumentNumber(doc.id);
+          var did = cid + '-doc-' + doc.id;
+          nodes.push({ id: did, parent: cid, text: 'Document ' + docNum, state: { opened: true },
+            li_attr: { class: 'document-node' },
+            data: { type: 'document', document: doc, conditionId: cond.id } });
+          (doc.pages || []).forEach(function(pg) {
+            var pgNum = getPageNumber(pg.id);
+            var pgid = did + '-page-' + pg.id;
+            nodes.push({ id: pgid, parent: did, text: 'Page ' + pgNum, state: { opened: true },
+              li_attr: { class: 'page-node' },
+              data: { type: 'page', page: pg, documentId: doc.id, conditionId: cond.id } });
+            (pg.takeoffZones || []).forEach(function(z) {
+              var zNum = getZoneNumber(z.id);
+              var zid = pgid + '-zone-' + z.id;
+              nodes.push({ id: zid, parent: pgid, text: 'Zone ' + zNum,
+                li_attr: { class: 'zone-node' },
+                data: { type: 'zone', zone: z, pageId: pg.id, documentId: doc.id, conditionId: cond.id } });
+            });
+          });
+        });
+      });
+      var $tree = $('#takeoffTree');
+      if ($tree.jstree(true)) {
+        $tree.jstree(true).settings.core.data = nodes;
+        $tree.jstree(true).refresh();
+      } else {
+        $tree.jstree({ core: { data: nodes, check_callback: true }, plugins: ['wholerow'] });
+      }
+    }
+
+    // ── Server calls ───────────────────────────────────────
+    function refreshProjects() {
+      return api({ url: '/api/demo/projects', type: 'GET' }).done(function(ids) {
+        var $s = $('#projectSelect');
+        $s.empty().append($('<option/>').val('').text('-- Select Project --'));
+        (ids || []).forEach(function(id) { $s.append($('<option/>').val(id).text(id)); });
+      });
     }
 
     function loadProject(projectId) {
-      if (!projectId) { currentProjectId = null; renderTree('none', []); return setStatus('no project selected'); }
+      if (!projectId) {
+        currentProjectId = null;
+        renderTree('none', []);
+        setStatus('no project');
+        return $.Deferred().resolve().promise();
+      }
       currentProjectId = projectId;
-      setStatus('loading');
-      $.getJSON('/api/demo/projects/' + projectId + '/conditions')
-        .done(function(data) { renderTree(projectId, data); setStatus('loaded'); })
-        .fail(function() { setStatus('load failed'); alert('Failed to load conditions'); });
+      setStatus('loading...');
+      return api({ url: '/api/demo/projects/' + projectId + '/conditions', type: 'GET' }).done(function(data) {
+        // Server now handles all summary computation - just render the data as received
+        renderTree(projectId, data);
+        setStatus('loaded');
+      }).fail(function() { setStatus('load failed'); });
     }
 
-    function refreshProjects() {
-      $.getJSON('/api/demo/projects').done(function(ids){
-        const $sel = $('#projectSelect');
-        $sel.empty();
-        $sel.append($('<option/>').val('').text('Not selected'));
-        ids.forEach(id => $sel.append($('<option/>').val(id).text(id)));
-        if (currentProjectId) $sel.val(currentProjectId);
-      }).fail(function(){ setStatus('failed to load projects'); });
+    function fetchCondition(condId) {
+      return api({ url: '/api/demo/projects/' + currentProjectId + '/conditions/' + condId, type: 'GET' });
     }
 
-    function clearForm() {
-      $('#fId').val('');
-      $('#fProjectId').val(currentProjectId || '');
-      $('#valuesTable tbody').empty();
-      currentCondition = null;
-      isEditMode = false;
-      $('#formTitle').text('Create Condition');
+    function putCondition(cond) {
+      // Server will compute all summaries when data is saved
+      return api({ url: '/api/demo/conditions/' + cond.id, type: 'PUT', contentType: 'application/json', data: JSON.stringify(cond) });
     }
 
-    function populateForm(condition) {
-      currentCondition = condition;
-      $('#fId').val(condition.id);
-      $('#fProjectId').val(condition.projectId);
-      $('#valuesTable tbody').empty();
-      (condition.measurements || []).forEach(v => addValueRow(v));
-      isEditMode = true;
-      $('#formTitle').text('Edit Condition');
+    function selectTreeNode(nodeId) {
+      setTimeout(function() {
+        try {
+          var tree = $('#takeoffTree').jstree(true);
+          if (tree) {
+            tree.deselect_all(true);
+            tree.select_node(nodeId);
+            // Scroll to the node if it's not visible
+            var $node = $('#' + nodeId);
+            if ($node.length) {
+              $node[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }
+        } catch (e) { console.warn('select_node failed', e); }
+      }, 300);
     }
 
-    function addValueRow(val) {
-      const name = val?.measurementName || '';
-      const units = val?.unitsOfMeasurements || '';
-      const value = val?.value ?? 0;
-      const $tr = $(`<tr>
-        <td><input class="form-control valueName" value="${name}" /></td>
-        <td><input class="form-control valueUnits" value="${units}" /></td>
-        <td><input type="number" step="any" class="form-control valueNumber" value="${value}" /></td>
-        <td><button class="btn btn-sm btn-danger btnRemoveValue">Remove</button></td>
-      </tr>`);
-      $('#valuesTable tbody').append($tr);
-    }
-
-    function gatherForm() {
-      const id = $('#fId').val();
-      const projectId = $('#fProjectId').val();
-      const measurements = [];
-      $('#valuesTable tbody tr').each(function(){
-        const name = $(this).find('.valueName').val();
-        const units = $(this).find('.valueUnits').val();
-        const val = parseFloat($(this).find('.valueNumber').val()) || 0;
-        if (name) measurements.push({ measurementName: name, unitsOfMeasurements: units, value: val });
-      });
-      return { id: id, projectId: projectId, measurements: measurements };
-    }
-
-    function fetchAndPopulateFromNodeId(nodeId) {
-      if (!nodeId || !nodeId.startsWith('cond-')) return;
-      const condId = nodeId.replace('cond-','');
-      const projectId = currentProjectId;
-      if (!projectId) { alert('ProjectId required'); return; }
-      setStatus('loading condition');
-      $.getJSON('/api/demo/projects/' + projectId + '/conditions/' + condId)
-        .done(function(cond){ populateForm(cond); setStatus('condition loaded'); })
-        .fail(function(){ setStatus('load condition failed'); alert('Failed to load condition from server'); });
-    }
-
-    $(function(){
+    // ── jQuery ready ───────────────────────────────────────
+    $(function() {
       refreshProjects();
 
-      $('#projectSelect').change(function(){
-        const val = $(this).val();
-        if (!val) { loadProject(null); } else { loadProject(val); }
+      $('#projectSelect').change(function() {
+        var v = $(this).val();
+        loadProject(v || null);
       });
 
-      $('#takeoffTree').on('select_node.jstree', function(e, data){
-        const node = data.node;
-        if (!node) return;
-        const condNodeId = resolveConditionNodeId(node);
-        if (condNodeId) fetchAndPopulateFromNodeId(condNodeId);
-      });
-
-      $('#btnAddCondition').click(function(){
-        $.post('/api/demo/guids').done(function(condGuid){
-          clearForm();
-          $('#fId').val(condGuid);
-          const sel = $('#projectSelect').val();
-          if (sel) {
-            $('#fProjectId').val(sel);
-            addValueRow({ measurementName: '', unitsOfMeasurements: '', value: 0 });
-          } else {
-            $.post('/api/demo/guids').done(function(projGuid){
-              const $sel = $('#projectSelect');
-              $sel.append($('<option/>').val(projGuid).text(projGuid));
-              $sel.val(projGuid);
-              $('#fProjectId').val(projGuid);
-              loadProject(projGuid);
-              addValueRow({ measurementName: '', unitsOfMeasurements: '', value: 0 });
-            }).fail(function(){ alert('Failed to get project guid'); });
+      // Auto-select first project on startup - improved timing and error handling
+      setTimeout(function() {
+        try {
+          var $sel = $('#projectSelect');
+          var firstOption = $sel.find('option').eq(1); // Skip placeholder at index 0
+          if (firstOption.length && !$sel.val()) {
+            var firstProjectId = firstOption.val();
+            $sel.val(firstProjectId);
+            loadProject(firstProjectId);
           }
-        }).fail(function(){ alert('Failed to get guid'); });
-      });
-
-      $('#btnEditCondition').click(function(){
-        const sel = $('#takeoffTree').jstree('get_selected');
-        if (!sel || !sel.length) return alert('Select a condition node');
-        let nodeId = sel[0];
-        const tree = $('#takeoffTree').jstree(true);
-        const node = tree.get_node(nodeId);
-        const condNodeId = resolveConditionNodeId(node);
-        if (!condNodeId) return alert('Select a condition node');
-        fetchAndPopulateFromNodeId(condNodeId);
-      });
-
-      $('#btnDeleteCondition').click(function(){
-        const sel = $('#takeoffTree').jstree('get_selected');
-        if (!sel || !sel.length) return alert('Select a condition node');
-        let nodeId = sel[0];
-        const tree = $('#takeoffTree').jstree(true);
-        const node = tree.get_node(nodeId);
-        const condNodeId = resolveConditionNodeId(node);
-        if (!condNodeId) return alert('Select a condition node');
-        const condId = condNodeId.replace('cond-','');
-        const projectId = currentProjectId;
-        if (!projectId) return alert('ProjectId required');
-        setStatus('deleting');
-        $.ajax({ url: '/api/demo/projects/' + projectId + '/conditions/' + condId, method: 'DELETE' })
-          .done(function(){ setStatus('deleted'); loadProject(projectId); refreshProjects(); })
-          .fail(function(){ setStatus('delete failed'); alert('Delete failed'); });
-      });
-
-      $('#btnAddValue').click(function(){ addValueRow({ measurementName: '', unitsOfMeasurements: '', value: 0 }); });
-
-      $('#valuesTable').on('click', '.btnRemoveValue', function(){ $(this).closest('tr').remove(); });
-
-      $('#btnCancel').click(function(){ clearForm(); });
-
-      $('#btnSave').click(function(){
-        const model = gatherForm();
-        if (!model.projectId) return alert('ProjectId required');
-        if (!model.id) return alert('Id required');
-        setStatus('saving');
-        const url = '/api/demo/conditions' + (isEditMode ? ('/' + model.id) : '');
-        const method = isEditMode ? 'PUT' : 'POST';
-        $.ajax({ url: url, method: method, contentType: 'application/json', data: JSON.stringify(model) })
-          .done(function(){ setStatus('saved'); loadProject(model.projectId); refreshProjects(); clearForm(); })
-          .fail(function(){ setStatus('save failed'); alert('Save failed'); });
-      });
-
-      // initial state
-      clearForm();
-      setStatus('ready');
-    });
-
-    // helper used by selection handlers
-    const guidRegex = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
-    function isConditionNodeId(id) {
-      if (!id || !id.startsWith('cond-')) return false;
-      const rest = id.substring(5);
-      return guidRegex.test(rest);
-    }
-
-    function resolveConditionNodeId(node) {
-      if (!node) return null;
-      if (isConditionNodeId(node.id)) return node.id;
-      if (node.parents && node.parents.length) {
-        for (const p of node.parents) {
-          if (isConditionNodeId(p)) return p;
+        } catch (e) {
+          console.warn('Auto-select project failed:', e);
         }
-      }
-      return null;
-    }
+      }, 200);
+
+      // ── Tree selection → show form ──
+      $('#takeoffTree').on('select_node.jstree', function(e, data) {
+        var nd = data.node.data || {};
+        if (nd.type === 'condition') {
+          sel = { conditionId: nd.condition.id, documentId: null, pageId: null, zoneId: null };
+          $('#cId').val(nd.condition.id);
+          $('#cProjectId').val(nd.condition.projectId);
+          var $tb = $('#cProjectSummary tbody').empty();
+          (nd.condition.projectSummary || []).forEach(function(q) { $tb.append(qDisplayRow(q)); });
+          showConditionForm();
+        } else if (nd.type === 'document') {
+          sel.conditionId = nd.conditionId;
+          sel.documentId = nd.document.id;
+          sel.pageId = sel.zoneId = null;
+          $('#dId').val(nd.document.id);
+          var $dt = $('#dSummary tbody').empty();
+          (nd.document.documentSummary || []).forEach(function(q) { $dt.append(qDisplayRow(q)); });
+          showDocumentForm();
+        } else if (nd.type === 'page') {
+          sel.conditionId = nd.conditionId;
+          sel.documentId = nd.documentId;
+          sel.pageId = nd.page.id;
+          sel.zoneId = null;
+          $('#pId').val(nd.page.id);
+          $('#pNumber').val(nd.page.pageNumber);
+          var $pt = $('#pSummary tbody').empty();
+          (nd.page.pageSummary || []).forEach(function(q) { $pt.append(qDisplayRow(q)); });
+          showPageForm();
+        } else if (nd.type === 'zone') {
+          sel.conditionId = nd.conditionId;
+          sel.documentId = nd.documentId;
+          sel.pageId = nd.pageId;
+          sel.zoneId = nd.zone.id;
+          $('#zId').val(nd.zone.id);
+          var $zt = $('#zSummary tbody').empty();
+          (nd.zone.zoneSummary || []).forEach(function(q) { $zt.append(qInputRow(q)); });
+          showZoneForm();
+        } else {
+          sel = { conditionId: null, documentId: null, pageId: null, zoneId: null };
+          hideAllForms();
+        }
+      });
+
+      // ── Add Condition ──
+      $('#btnAddCondition').click(function() {
+        setStatus('creating condition...');
+        var projectId = $('#projectSelect').val();
+
+        function doCreate(projId) {
+          var payload = { projectId: projId, projectSummary: [], documents: [] };
+          api({ url: '/api/demo/conditions', type: 'POST', contentType: 'application/json', data: JSON.stringify(payload) })
+            .done(function(created) {
+              setStatus('condition created');
+              if ($('#projectSelect').val() !== projId) {
+                $('#projectSelect').val(projId);
+              }
+              loadProject(projId).done(function() {
+                selectTreeNode('cond-' + created.id);
+              });
+            })
+            .fail(function() { alert('Failed to create condition'); setStatus('ready'); });
+        }
+
+        if (projectId) {
+          doCreate(projectId);
+        } else {
+          api({ url: '/api/demo/guids', type: 'POST' }).done(function(guid) {
+            var $s = $('#projectSelect');
+            $s.append($('<option/>').val(guid).text(guid));
+            $s.val(guid);
+            currentProjectId = guid;
+            doCreate(guid);
+          }).fail(function() { alert('Failed to create project'); setStatus('ready'); });
+        }
+      });
+
+      // ── Delete Condition ──
+      $('#cDeleteCondition').click(function() {
+        var condId = $('#cId').val();
+        var projId = $('#cProjectId').val();
+        if (!condId || !projId) return alert('No condition selected');
+        if (!confirm('Delete condition ' + condId + '?')) return;
+        api({ url: '/api/demo/projects/' + projId + '/conditions/' + condId, type: 'DELETE' })
+          .done(function() { setStatus('deleted'); hideAllForms(); loadProject(projId); })
+          .fail(function() { alert('Failed to delete condition'); });
+      });
+
+      // ── Add Document ──
+      $('#cAddDocument').click(function() {
+        var condId = sel.conditionId || $('#cId').val();
+        if (!condId || !currentProjectId) return alert('No condition selected');
+        api({ url: '/api/demo/guids', type: 'POST' }).done(function(docGuid) {
+          fetchCondition(condId).done(function(cond) {
+            cond.documents = cond.documents || [];
+            cond.documents.push({ id: docGuid, documentSummary: [], pages: [] });
+            // Assign number to new document immediately
+            var docNum = getDocumentNumber(docGuid);
+            putCondition(cond).done(function() {
+              loadProject(currentProjectId).done(function() {
+                selectTreeNode('cond-' + condId + '-doc-' + docGuid);
+              });
+            }).fail(function() { alert('Failed to add document'); });
+          }).fail(function() { alert('Failed to load condition'); });
+        }).fail(function() { alert('Failed to get guid'); });
+      });
+
+      // ── Delete Document ──
+      $('#dDeleteDocument').click(function() {
+        if (!sel.conditionId || !sel.documentId) return alert('No document selected');
+        if (!confirm('Delete document from all conditions?')) return;
+        api({ url: '/api/demo/projects/' + currentProjectId + '/documents/' + sel.documentId, type: 'DELETE' })
+          .done(function() {
+            setStatus('document deleted from all conditions');
+            hideAllForms();
+            loadProject(currentProjectId);
+          })
+          .fail(function() { alert('Failed to delete document'); });
+      });
+
+      // ── Add Page ──
+      $('#dAddPage').click(function() {
+        if (!sel.conditionId || !sel.documentId) return alert('No document selected');
+        api({ url: '/api/demo/guids', type: 'POST' }).done(function(pageGuid) {
+          fetchCondition(sel.conditionId).done(function(cond) {
+            var doc = (cond.documents || []).find(function(d) { return d.id === sel.documentId; });
+            if (!doc) return alert('Document not found');
+            doc.pages = doc.pages || [];
+            doc.pages.push({ id: pageGuid, pageNumber: doc.pages.length + 1, pageSummary: [], takeoffZones: [] });
+            // Assign number to new page immediately
+            var pgNum = getPageNumber(pageGuid);
+            putCondition(cond).done(function() {
+              loadProject(currentProjectId).done(function() {
+                selectTreeNode('cond-' + sel.conditionId + '-doc-' + sel.documentId + '-page-' + pageGuid);
+              });
+            }).fail(function() { alert('Failed to add page'); });
+          }).fail(function() { alert('Failed to load condition'); });
+        }).fail(function() { alert('Failed to get guid'); });
+      });
+
+      // ── Delete Page ──
+      $('#pDeletePage').click(function() {
+        if (!sel.conditionId || !sel.documentId || !sel.pageId) return alert('No page selected');
+        if (!confirm('Delete page from all conditions?')) return;
+        api({ url: '/api/demo/projects/' + currentProjectId + '/pages/' + sel.pageId, type: 'DELETE' })
+          .done(function() {
+            setStatus('page deleted from all conditions');
+            hideAllForms();
+            loadProject(currentProjectId);
+          })
+          .fail(function() { alert('Failed to delete page'); });
+      });
+
+      // ── Add Zone ──
+      $('#pAddZone').click(function() {
+        if (!sel.conditionId || !sel.documentId || !sel.pageId) return alert('No page selected');
+        api({ url: '/api/demo/guids', type: 'POST' }).done(function(zoneGuid) {
+          fetchCondition(sel.conditionId).done(function(cond) {
+            var doc = (cond.documents || []).find(function(d) { return d.id === sel.documentId; });
+            if (!doc) return alert('Document not found');
+            var page = (doc.pages || []).find(function(p) { return p.id === sel.pageId; });
+            if (!page) return alert('Page not found');
+            page.takeoffZones = page.takeoffZones || [];
+            page.takeoffZones.push({ id: zoneGuid, zoneSummary: [] });
+            // Assign number to new zone immediately
+            var zNum = getZoneNumber(zoneGuid);
+            putCondition(cond).done(function() {
+              loadProject(currentProjectId).done(function() {
+                selectTreeNode('cond-' + sel.conditionId + '-doc-' + sel.documentId + '-page-' + sel.pageId + '-zone-' + zoneGuid);
+              });
+            }).fail(function() { alert('Failed to add zone'); });
+          }).fail(function() { alert('Failed to load condition'); });
+        }).fail(function() { alert('Failed to get guid'); });
+      });
+
+      // ── Zone: add summary row ──
+      $('#zAddRow').click(function() {
+        $('#zSummary tbody').append(qInputRow(null));
+      });
+
+      // ── Zone: remove summary row ──
+      $(document).on('click', '.z-remove-row', function() {
+        $(this).closest('tr').remove();
+      });
+
+      // ── Zone: save with auto-computed summaries ──
+      $('#zSave').click(function() {
+        if (!sel.conditionId || !sel.documentId || !sel.pageId || !sel.zoneId) return alert('No zone selected');
+        var items = [];
+        $('#zSummary tbody tr').each(function() {
+          var name = $(this).find('.q-name').val();
+          var unit = $(this).find('.q-unit').val();
+          var value = parseFloat($(this).find('.q-value').val()) || 0;
+          if (name) items.push({ name: name, unit: unit, value: value });
+        });
+        fetchCondition(sel.conditionId).done(function(cond) {
+          var doc = (cond.documents || []).find(function(d) { return d.id === sel.documentId; });
+          if (!doc) return alert('Document not found');
+          var page = (doc.pages || []).find(function(p) { return p.id === sel.pageId; });
+          if (!page) return alert('Page not found');
+          var zone = (page.takeoffZones || []).find(function(z) { return z.id === sel.zoneId; });
+          if (!zone) return alert('Zone not found');
+          zone.zoneSummary = items;
+          // putCondition will auto-compute all summaries before saving
+          putCondition(cond).done(function() {
+            setStatus('zone saved, summaries updated');
+            loadProject(currentProjectId).done(function() {
+              selectTreeNode('cond-' + sel.conditionId + '-doc-' + sel.documentId + '-page-' + sel.pageId + '-zone-' + sel.zoneId);
+            });
+          }).fail(function() { alert('Failed to save zone'); });
+        }).fail(function() { alert('Failed to load condition'); });
+      });
+
+      // ── Zone: delete ──
+      $('#zDelete').click(function() {
+        if (!sel.conditionId || !sel.documentId || !sel.pageId || !sel.zoneId) return alert('No zone selected');
+        if (!confirm('Delete zone ' + sel.zoneId + '?')) return;
+        api({ url: '/api/demo/projects/' + currentProjectId + '/zones/' + sel.zoneId, type: 'DELETE' })
+          .done(function() {
+            setStatus('zone deleted, summaries updated');
+            hideAllForms();
+            loadProject(currentProjectId);
+          })
+          .fail(function() { alert('Failed to delete zone'); });
+      });
+
+    }); // end ready
+  })();
   </script>
 </body>
 </html>

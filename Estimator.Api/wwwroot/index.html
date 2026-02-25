@@ -7,127 +7,378 @@
   <link href="https://cdn.jsdelivr.net/npm/jstree@3.3.16/dist/themes/default/style.min.css" rel="stylesheet" />
   <title>Estimator</title>
   <style>
-    #estimatorTree { height: calc(100vh - 120px); overflow:auto; border:1px solid #ddd; padding:8px }
+    body, html { height: 100%; }
+    #estimatorTree { height: calc(100vh - 120px); overflow: auto; border: 1px solid #ddd; padding: 8px; }
+    #infoPanel { height: calc(100vh - 120px); overflow: auto; border: 1px solid #ddd; padding: 12px; background: #f9f9f9; }
+    .table td, .table th { vertical-align: middle; }
+    
+    /* Readonly tree styling */
+    #estimatorTree .jstree-anchor {
+      font-style: normal;
+      color: #333;
+    }
+    
+    /* Custom tree icons - same as Takeoff */
+    #estimatorTree .jstree-icon.jstree-themeicon {
+      width: 0;
+      margin-right: 0;
+      background: none;
+    }
+    
+    #estimatorTree .jstree-node.project-node > .jstree-anchor::before {
+      content: '📦 ';
+      font-size: 16px;
+      margin-right: 4px;
+      font-style: normal;
+    }
+    
+    #estimatorTree .jstree-node.condition-node > .jstree-anchor::before {
+      content: '⚙️ ';
+      font-size: 16px;
+      margin-right: 4px;
+      font-style: normal;
+    }
+    
+    #estimatorTree .jstree-node.document-node > .jstree-anchor::before {
+      content: '📋 ';
+      font-size: 16px;
+      margin-right: 4px;
+      font-style: normal;
+    }
+    
+    #estimatorTree .jstree-node.page-node > .jstree-anchor::before {
+      content: '📄 ';
+      font-size: 16px;
+      margin-right: 4px;
+      font-style: normal;
+    }
+    
+    #estimatorTree .jstree-node.zone-node > .jstree-anchor::before {
+      content: '🔲 ';
+      font-size: 16px;
+      margin-right: 4px;
+      font-style: normal;
+    }
+    
+    /* Hide icon for root "All Projects" node */
+    #estimatorTree .jstree-node#all-projects > .jstree-anchor::before {
+      content: '';
+      margin-right: 0;
+    }
   </style>
 </head>
 <body>
   <div class="container-fluid p-2">
     <div class="d-flex mb-2">
       <div>
-        <button id="btnPullSnapshot" class="btn btn-primary">Get All Conditions from Takeoff</button>
+        <button id="btnPullSnapshot" class="btn btn-primary">Pull Snapshot from Takeoff</button>
       </div>
-      <div class="ms-auto d-flex align-items-center">
-        <select id="projectSelect" class="form-select me-2" style="width:300px;"></select>
-        <div id="statusBanner" class="text-muted">Idle</div>
+      <div class="ms-auto">
+        <div id="statusBanner" class="text-muted">Status: idle</div>
       </div>
     </div>
-    <div id="estimatorTree"></div>
+    <div class="row g-2" style="height: calc(100vh - 120px);">
+      <div class="col-6">
+        <div id="estimatorTree"></div>
+      </div>
+      <div class="col-6">
+        <div id="infoPanel">
+          <div id="infoPanelContent">
+            <div class="text-muted text-center mt-5">Select a node to view details</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jstree@3.3.16/dist/jstree.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
   <script>
-    function setStatus(text) { $('#statusBanner').text(text); }
+  (function() {
+    'use strict';
 
-    function renderTree(projectId, data) {
-      const nodes = [];
-      const projectNodeId = 'project-' + projectId;
-      nodes.push({ id: projectNodeId, parent: '#', text: 'Project: ' + projectId, state: { opened: true } });
-      data.forEach((cond, condIndex) => {
-        const condId = 'cond-' + cond.id;
-        nodes.push({ id: condId, parent: projectNodeId, text: 'Condition: ' + cond.id, data: { condition: cond } });
+    // Client-side ID to number mappings
+    var idToDocumentNumber = {};
+    var idToPageNumber = {};
+    var idToZoneNumber = {};
+    var nextDocumentNumber = 1;
+    var nextPageNumber = 1;
+    var nextZoneNumber = 1;
+    
+    var pollingInterval = null;
+    var lastHash = null;
+    var allConditionsData = [];
 
-        // MeasurementValues node
-        const valsNodeId = condId + '-vals';
-        nodes.push({ id: valsNodeId, parent: condId, text: 'Measurements' });
+    function setStatus(t) { $('#statusBanner').text('Status: ' + t); }
 
-        (cond.measurements || []).forEach((v, i) => {
-          const name = v?.measurementName || '';
-          const units = v?.unitsOfMeasurements || '';
-          // create a stable node id using condition id + index + encoded name
-          const safeName = encodeURIComponent(name).replace(/%/g, '');
-          const nodeId = `${valsNodeId}-${i}-${safeName}`;
-          const displayText = (name || '<unnamed>') + (units ? ' (' + units + ')' : '') + ': ' + (v?.value ?? 0);
-          nodes.push({ id: nodeId, parent: valsNodeId, text: displayText });
+    function getDocumentNumber(docId) {
+      if (!idToDocumentNumber[docId]) {
+        idToDocumentNumber[docId] = nextDocumentNumber++;
+      }
+      return idToDocumentNumber[docId];
+    }
+
+    function getPageNumber(pageId) {
+      if (!idToPageNumber[pageId]) {
+        idToPageNumber[pageId] = nextPageNumber++;
+      }
+      return idToPageNumber[pageId];
+    }
+
+    function getZoneNumber(zoneId) {
+      if (!idToZoneNumber[zoneId]) {
+        idToZoneNumber[zoneId] = nextZoneNumber++;
+      }
+      return idToZoneNumber[zoneId];
+    }
+
+    function showConditionInfo(cond) {
+      var html = '<div class="card"><div class="card-body">' +
+        '<h5>Condition</h5>' +
+        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + cond.id + '" readonly /></div>' +
+        '<div class="mb-2"><label class="form-label">ProjectId</label><input class="form-control" value="' + cond.projectId + '" readonly /></div>' +
+        '<div class="mb-3"><h6>Project Summary</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
+      (cond.projectSummary || []).forEach(function(q) {
+        html += '<tr><td>' + (q.name || '') + '</td><td>' + (q.unit || '') + '</td><td>' + (q.value || 0) + '</td></tr>';
+      });
+      html += '</tbody></table></div></div></div>';
+      $('#infoPanelContent').html(html);
+    }
+
+    function showDocumentInfo(docId, cond) {
+      var doc = (cond.documents || []).find(function(d) { return d.id === docId; });
+      if (!doc) return;
+      var docNum = getDocumentNumber(docId);
+      var html = '<div class="card"><div class="card-body">' +
+        '<h5>Document ' + docNum + '</h5>' +
+        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + doc.id + '" readonly /></div>' +
+        '<div class="mb-3"><h6>Document Summary</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
+      (doc.documentSummary || []).forEach(function(q) {
+        html += '<tr><td>' + (q.name || '') + '</td><td>' + (q.unit || '') + '</td><td>' + (q.value || 0) + '</td></tr>';
+      });
+      html += '</tbody></table></div></div></div>';
+      $('#infoPanelContent').html(html);
+    }
+
+    function showPageInfo(pageId, cond) {
+      var page = null;
+      (cond.documents || []).forEach(function(doc) {
+        var p = (doc.pages || []).find(function(x) { return x.id === pageId; });
+        if (p) page = p;
+      });
+      if (!page) return;
+      var pgNum = getPageNumber(pageId);
+      var html = '<div class="card"><div class="card-body">' +
+        '<h5>Page ' + pgNum + '</h5>' +
+        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + page.id + '" readonly /></div>' +
+        '<div class="mb-2"><label class="form-label">Page Number</label><input type="number" class="form-control" value="' + page.pageNumber + '" readonly /></div>' +
+        '<div class="mb-3"><h6>Page Summary</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
+      (page.pageSummary || []).forEach(function(q) {
+        html += '<tr><td>' + (q.name || '') + '</td><td>' + (q.unit || '') + '</td><td>' + (q.value || 0) + '</td></tr>';
+      });
+      html += '</tbody></table></div></div></div>';
+      $('#infoPanelContent').html(html);
+    }
+
+    function showZoneInfo(zoneId, cond) {
+      var zone = null;
+      (cond.documents || []).forEach(function(doc) {
+        (doc.pages || []).forEach(function(page) {
+          var z = (page.takeoffZones || []).find(function(x) { return x.id === zoneId; });
+          if (z) zone = z;
         });
       });
-      const tree = $('#estimatorTree');
-      if (tree.jstree(true)) tree.jstree(true).settings.core.data = nodes, tree.jstree(true).refresh();
-      else tree.jstree({ core: { data: nodes }, plugins: ['wholerow'] });
-    }
-
-    function refreshProjects(selectedId) {
-      $.getJSON('/api/demo/projects').done(function(ids){
-        const $sel = $('#projectSelect');
-        const prev = $sel.val();
-        $sel.empty();
-        $sel.append($('<option/>').val('').text('Not selected'));
-        ids.forEach(id => $sel.append($('<option/>').val(id).text(id)));
-        // restore selection: prefer explicit selectedId, else previous selection if still present
-        if (selectedId) {
-          $sel.val(selectedId);
-        } else if (prev && $sel.find('option[value="'+prev+'"]').length) {
-          $sel.val(prev);
-        } else {
-          $sel.val('');
-        }
-      }).fail(function(){ setStatus('failed to load projects'); });
-    }
-
-    function loadLocal(projectId) {
-      if (!projectId) { renderTree('none', []); setStatus('no project selected'); return; }
-      setStatus('loading local');
-      $.getJSON('/api/demo/projects/' + projectId + '/conditions')
-        .done(function(data){ renderTree(projectId, data); setStatus('loaded local at ' + new Date().toLocaleTimeString()); })
-        .fail(function(){ setStatus('load failed'); alert('Failed to load local data'); });
-    }
-
-    $(function(){
-      refreshProjects();
-
-      $('#projectSelect').change(function(){
-        const val = $(this).val();
-        if (!val) { loadLocal(null); } else { loadLocal(val); }
+      if (!zone) return;
+      var zNum = getZoneNumber(zoneId);
+      var html = '<div class="card"><div class="card-body">' +
+        '<h5>Zone ' + zNum + '</h5>' +
+        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + zone.id + '" readonly /></div>' +
+        '<div class="mb-3"><h6>Zone Summary</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
+      (zone.zoneSummary || []).forEach(function(q) {
+        html += '<tr><td>' + (q.name || '') + '</td><td>' + (q.unit || '') + '</td><td>' + (q.value || 0) + '</td></tr>';
       });
+      html += '</tbody></table></div></div></div>';
+      $('#infoPanelContent').html(html);
+    }
 
-      function doPull(projectId) {
-        setStatus('pulling...');
-        // call Estimator's demo snapshot pull endpoint (which will request Takeoff)
-        $.ajax({ url: '/api/demo/snapshot/pull', method: 'POST', contentType: 'application/json', data: JSON.stringify({ projectId: projectId }) })
-          .done(function(data){ renderTree(projectId, data); setStatus('pulled at ' + new Date().toLocaleTimeString()); refreshProjects(projectId); })
-          .fail(function(){ setStatus('pull failed'); alert('Failed to pull snapshot'); });
+    function renderTree(data) {
+      allConditionsData = data;
+      var nodes = [];
+      
+      // Scan data and assign numbers to any new IDs
+      (data || []).forEach(function(cond) {
+        (cond.documents || []).forEach(function(doc) {
+          getDocumentNumber(doc.id);
+          (doc.pages || []).forEach(function(pg) {
+            getPageNumber(pg.id);
+            (pg.takeoffZones || []).forEach(function(z) {
+              getZoneNumber(z.id);
+            });
+          });
+        });
+      });
+      
+      // Root node for all projects (no icon)
+      nodes.push({ id: 'all-projects', parent: '#', text: 'All Projects', state: { opened: true },
+        li_attr: { class: '' } });
+      
+      // Group data by project
+      var projectMap = {};
+      (data || []).forEach(function(cond) {
+        if (!projectMap[cond.projectId]) {
+          projectMap[cond.projectId] = [];
+        }
+        projectMap[cond.projectId].push(cond);
+      });
+      
+      // Render each project
+      Object.keys(projectMap).forEach(function(projectId) {
+        var projectNode = 'project-' + projectId;
+        nodes.push({ id: projectNode, parent: 'all-projects', text: 'Project: ' + projectId, state: { opened: true },
+          li_attr: { class: 'project-node' } });
+        
+        var conditions = projectMap[projectId];
+        conditions.forEach(function(cond, condIdx) {
+          var cid = projectNode + '-cond-' + cond.id;
+          nodes.push({ id: cid, parent: projectNode, text: 'Condition ' + (condIdx + 1), state: { opened: true },
+            li_attr: { class: 'condition-node' },
+            data: { type: 'condition', conditionId: cond.id, projectId: cond.projectId } });
+          
+          (cond.documents || []).forEach(function(doc) {
+            var docNum = getDocumentNumber(doc.id);
+            var did = cid + '-doc-' + doc.id;
+            nodes.push({ id: did, parent: cid, text: 'Document ' + docNum, state: { opened: true },
+              li_attr: { class: 'document-node' },
+              data: { type: 'document', documentId: doc.id, conditionId: cond.id, projectId: cond.projectId } });
+            
+            (doc.pages || []).forEach(function(pg) {
+              var pgNum = getPageNumber(pg.id);
+              var pgid = did + '-page-' + pg.id;
+              nodes.push({ id: pgid, parent: did, text: 'Page ' + pgNum, state: { opened: true },
+                li_attr: { class: 'page-node' },
+                data: { type: 'page', pageId: pg.id, documentId: doc.id, conditionId: cond.id, projectId: cond.projectId } });
+              
+              (pg.takeoffZones || []).forEach(function(z) {
+                var zNum = getZoneNumber(z.id);
+                var zid = pgid + '-zone-' + z.id;
+                nodes.push({ id: zid, parent: pgid, text: 'Zone ' + zNum,
+                  li_attr: { class: 'zone-node' },
+                  data: { type: 'zone', zoneId: z.id, pageId: pg.id, documentId: doc.id, conditionId: cond.id, projectId: cond.projectId } });
+              });
+            });
+          });
+        });
+      });
+      
+      var $tree = $('#estimatorTree');
+      if ($tree.jstree(true)) {
+        $tree.jstree(true).settings.core.data = nodes;
+        $tree.jstree(true).refresh();
+      } else {
+        $tree.jstree({ core: { data: nodes, check_callback: true }, plugins: ['wholerow'] })
+          .on('select_node.jstree', function(e, data) {
+            var nodeData = data.node.data || {};
+            if (nodeData.type === 'condition') {
+              var cond = allConditionsData.find(function(c) { return c.id === nodeData.conditionId; });
+              if (cond) showConditionInfo(cond);
+            } else if (nodeData.type === 'document') {
+              var cond = allConditionsData.find(function(c) { return c.id === nodeData.conditionId; });
+              if (cond) showDocumentInfo(nodeData.documentId, cond);
+            } else if (nodeData.type === 'page') {
+              var cond = allConditionsData.find(function(c) { return c.id === nodeData.conditionId; });
+              if (cond) showPageInfo(nodeData.pageId, cond);
+            } else if (nodeData.type === 'zone') {
+              var cond = allConditionsData.find(function(c) { return c.id === nodeData.conditionId; });
+              if (cond) showZoneInfo(nodeData.zoneId, cond);
+            } else {
+              $('#infoPanelContent').html('<div class="text-muted text-center mt-5">Select a node to view details</div>');
+            }
+          });
       }
+    }
 
-      $('#btnPullSnapshot').click(function(){
-        let projectId = $('#projectSelect').val();
-        if (!projectId) {
-          const input = prompt('ProjectId not selected. Enter a project id or leave empty to generate a new one:');
-          if (input === null) return;
-          if (!input) {
-            // generate new project id from server
-            $.post('/api/demo/guids').done(function(guid){
-              // add to dropdown and select
-              const $sel = $('#projectSelect');
-              $sel.append($('<option/>').val(guid).text(guid));
-              $sel.val(guid);
-              doPull(guid);
-            }).fail(function(){ alert('Failed to generate project id'); });
-          } else {
-            // use provided id
-            const $sel = $('#projectSelect');
-            // add if not present
-            if ($sel.find('option[value="'+input+'"]').length === 0) $sel.append($('<option/>').val(input).text(input));
-            $sel.val(input);
-            doPull(input);
-          }
-        } else {
-          doPull(projectId);
-        }
+    function pullSnapshot() {
+      setStatus('pulling snapshot...');
+      
+      $.ajax({
+        url: '/api/demo/pull-snapshot',
+        type: 'POST',
+        contentType: 'application/json',
+        timeout: 30000
+      })
+      .done(function(response) {
+        console.log('Snapshot pulled, response:', response);
+        
+        $.ajax({
+          url: '/api/demo/all-conditions',
+          type: 'GET',
+          contentType: 'application/json'
+        })
+        .done(function(allConditions) {
+          console.log('All conditions:', allConditions);
+          renderTree(allConditions);
+          setStatus('snapshot loaded (' + allConditions.length + ' conditions)');
+        })
+        .fail(function(err) {
+          setStatus('failed to refresh tree');
+          console.error('Failed to refresh:', err);
+        });
+      })
+      .fail(function(err) {
+        setStatus('snapshot pull failed');
+        console.error('Failed to pull snapshot:', err);
+        alert('Failed to pull snapshot from Takeoff');
       });
+    }
 
-      setStatus('ready');
+    function startPolling() {
+      if (pollingInterval) return;
+      
+      pollingInterval = setInterval(function() {
+        $.ajax({
+          url: '/api/demo/all-conditions',
+          type: 'GET',
+          contentType: 'application/json',
+          timeout: 5000
+        })
+        .done(function(allConditions) {
+          // Create a proper hash from the full JSON data to detect any changes
+          var currentHash = JSON.stringify(allConditions);
+          if (currentHash !== lastHash) {
+            console.log('Data changed, refreshing tree');
+            renderTree(allConditions);
+            lastHash = currentHash;
+          }
+        })
+        .fail(function(err) {
+          console.error('Polling error:', err);
+        });
+      }, 500); // Poll every 0.5 seconds
+      
+      setStatus('polling enabled (every 0.5s)');
+    }
+
+    function stopPolling() {
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+        setStatus('polling disabled');
+      }
+    }
+
+    $(function() {
+      // Initial tree render (empty)
+      renderTree([]);
+      
+      $('#btnPullSnapshot').click(function() {
+        pullSnapshot();
+      });
+      
+      // Auto-start polling
+      startPolling();
     });
+  })();
   </script>
 </body>
-</html></html>
+</html>

@@ -16,11 +16,11 @@ namespace Takeoff.Api.Services
             _logger = logger;
         }
 
-        public async Task SendConditionChangedAsync(Condition condition, CancellationToken ct = default)
+        public async Task SendConditionChangedAsync(List<Condition> conditions, CancellationToken ct = default)
         {
             try
             {
-                var res = await _client.PostAsJsonAsync("api/interactions/condition-changed", condition, ct);
+                var res = await _client.PostAsJsonAsync("api/interactions/condition-changed", conditions, ct);
                 if (!res.IsSuccessStatusCode)
                 {
                     _logger.LogWarning("Estimator responded with {StatusCode} to condition-changed", res.StatusCode);
@@ -46,6 +46,48 @@ namespace Takeoff.Api.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to send condition-deleted to Estimator");
+            }
+        }
+
+        public async Task SendDocumentDeletedAsync(Guid projectId, Guid conditionId, Guid documentId, CancellationToken ct = default)
+        {
+            try
+            {
+                var payload = new { ProjectId = projectId, DocumentId = documentId };
+                var res = await _client.PostAsJsonAsync("api/interactions/document-deleted", payload, ct);
+                if (!res.IsSuccessStatusCode) _logger.LogWarning("Estimator responded with {StatusCode} to document-deleted", res.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send document-deleted to Estimator");
+            }
+        }
+
+        public async Task SendPageDeletedAsync(Guid projectId, Guid conditionId, Guid documentId, Guid pageId, CancellationToken ct = default)
+        {
+            try
+            {
+                var payload = new { ProjectId = projectId, PageId = pageId };
+                var res = await _client.PostAsJsonAsync("api/interactions/page-deleted", payload, ct);
+                if (!res.IsSuccessStatusCode) _logger.LogWarning("Estimator responded with {StatusCode} to page-deleted", res.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send page-deleted to Estimator");
+            }
+        }
+
+        public async Task SendTakeoffZoneDeletedAsync(Guid projectId, Guid conditionId, Guid documentId, Guid pageId, Guid zoneId, CancellationToken ct = default)
+        {
+            try
+            {
+                var payload = new { ProjectId = projectId, ZoneId = zoneId };
+                var res = await _client.PostAsJsonAsync("api/interactions/takeoffzone-deleted", payload, ct);
+                if (!res.IsSuccessStatusCode) _logger.LogWarning("Estimator responded with {StatusCode} to takeoffzone-deleted", res.StatusCode);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to send takeoffzone-deleted to Estimator");
             }
         }
     }
