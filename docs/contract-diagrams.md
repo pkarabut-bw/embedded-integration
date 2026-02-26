@@ -89,23 +89,17 @@ sequenceDiagram
     Estimator-->>Takeoff: 204 No Content
 ```
 
-### 2.3 Pull Snapshot Flow
+### 2.3 Pull Project Snapshot
 
 ```mermaid
 sequenceDiagram
     participant Estimator
     participant Takeoff
     
-    Estimator->>Takeoff: Get all project IDs
-    Takeoff-->>Estimator: List of project IDs
+    Estimator->>Takeoff: GET /api/interactions/projects/{projectId}/conditions-all
+    Takeoff-->>Estimator: All conditions for project
     
-    Note over Estimator: For each project ID
-    loop For each project
-        Estimator->>Takeoff: GET /api/interactions/projects/{pid}/conditions-all
-        Takeoff-->>Estimator: All conditions for project
-    end
-    
-    Estimator->>Estimator: Accumulate and store all conditions
+    Estimator->>Estimator: Store all conditions
 ```
 
 ---
