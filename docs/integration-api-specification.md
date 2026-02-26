@@ -12,7 +12,7 @@ This document specifies the integration contracts and interaction protocols betw
   - Takeoff **pushes** change/deletion callbacks to Estimator (fire-and-forget)
   - Estimator **pulls** snapshots from Takeoff on demand or after deletions
 - All endpoints use `application/json` with camelCase property naming.
-- **KEY CHANGE**: Deletion callbacks now trigger **automatic snapshot pulls** to Estimator to ensure consistency.
+- Deletion callbacks trigger **automatic snapshot pulls** to Estimator to ensure consistency.
 
 ---
 
@@ -74,16 +74,6 @@ ProjectConditionQuantities (Condition)
             └── Quantities (ZoneSummary - raw data)
 ```
 
-### 2.7 Summary Aggregation Rules (Takeoff Only)
-
-Summaries are computed **bottom-up by Takeoff**:
-
-1. **PageSummary** = sum of all ZoneSummary quantities across zones, grouped by `(Name, Unit)`.
-2. **DocumentSummary** = sum of all PageSummary quantities across pages, grouped by `(Name, Unit)`.
-3. **ProjectSummary** = sum of all DocumentSummary quantities across documents, grouped by `(Name, Unit)`.
-
-**Estimator trusts summaries from Takeoff and never recomputes them.**
-
 ---
 
 ## 3. Takeoff → Estimator Callbacks (Push)
@@ -94,8 +84,6 @@ Summaries are computed **bottom-up by Takeoff**:
 - **Path**: `/api/interactions/conditions-changed`
 - **Request Body**: `List<ProjectConditionQuantities>`
 - **Response**: `200 OK` with `List<ProjectConditionQuantities>`
-
-**KEY CHANGE**: Endpoint renamed from `/condition-changed` to `/conditions-changed`.
 
 **Takeoff**:
 - Sends full condition on create.
@@ -115,11 +103,6 @@ Summaries are computed **bottom-up by Takeoff**:
 - **Request Body**: `{ "projectId": Guid, "conditionIds": List<Guid> }`
 - **Response**: `204 No Content`
 
-**KEY CHANGE**: 
-- Renamed from `/condition-deleted` to `/conditions-deleted`
-- **Now accepts lists of IDs** instead of single ID
-- **Estimator pulls snapshot after deletion**
-
 **Estimator**:
 1. Delete all conditions locally.
 2. **Pull fresh project snapshot** from Takeoff.
@@ -133,11 +116,6 @@ Summaries are computed **bottom-up by Takeoff**:
 - **Path**: `/api/interactions/documents-deleted`
 - **Request Body**: `{ "projectId": Guid, "documentIds": List<Guid> }`
 - **Response**: `204 No Content`
-
-**KEY CHANGE**:
-- Renamed from `/document-deleted` to `/documents-deleted`
-- **Now accepts list of document IDs**
-- **Estimator pulls snapshot after deletion**
 
 **Estimator**:
 1. Delete all documents locally.
@@ -153,11 +131,6 @@ Summaries are computed **bottom-up by Takeoff**:
 - **Request Body**: `{ "projectId": Guid, "pageIds": List<Guid> }`
 - **Response**: `204 No Content`
 
-**KEY CHANGE**:
-- Renamed from `/page-deleted` to `/pages-deleted`
-- **Now accepts list of page IDs**
-- **Estimator pulls snapshot after deletion**
-
 **Estimator**:
 1. Delete all pages locally.
 2. **Pull fresh project snapshot** from Takeoff.
@@ -172,11 +145,6 @@ Summaries are computed **bottom-up by Takeoff**:
 - **Request Body**: `{ "projectId": Guid, "zoneIds": List<Guid> }`
 - **Response**: `204 No Content`
 
-**KEY CHANGE**:
-- Renamed from `/takeoffzone-deleted` to `/takeoffzones-deleted`
-- **Now accepts list of zone IDs**
-- **Estimator pulls snapshot after deletion**
-
 **Estimator**:
 1. Delete all zones locally.
 2. **Pull fresh project snapshot** from Takeoff.
@@ -190,8 +158,6 @@ Summaries are computed **bottom-up by Takeoff**:
 - **Path**: `/api/interactions/project-deleted`
 - **Request Body**: `{ "projectId": Guid }`
 - **Response**: `204 No Content`
-
-**NEW ENDPOINT**
 
 **Estimator**:
 - Delete the entire project locally.
@@ -213,31 +179,25 @@ Summaries are computed **bottom-up by Takeoff**:
 
 ## 4. Estimator → Takeoff (Pull)
 
-### 4.1 Get Conditions for a Project
+Estimator can query Takeoff's API to retrieve condition data.
+
+### 4.1 Get Conditions for a Project (Single Project Snapshot)
 
 - **Method**: GET
 - **Path**: `/api/interactions/projects/{projectId}/conditions-all`
 - **Response**: `200 OK` with `List<ProjectConditionQuantities>`
 
-Returns all conditions for a project with summaries computed by Takeoff.
+Returns all conditions for the given project, with summaries already computed by Takeoff.
 
-**Used by**: Post-deletion snapshot sync.
-
----
-
-### 4.2 Get All Project IDs
-
-- **Method**: GET
-- **Path**: `/api/demo/projects`
-- **Response**: `200 OK` with `List<Guid>`
-
-Returns all project IDs from Takeoff.
-
-**EXCEPTION**: Only Demo API endpoint called by Estimator's pull flow.
+**Used by**:
+- Estimator after handling deletion callbacks to pull fresh project snapshot.
+- Initial snapshot pull when needed.
 
 ---
 
 ## 5. Health Check
+
+Both services expose a health endpoint.
 
 - **Method**: GET
 - **Path**: `/api/interactions/health`
@@ -247,31 +207,20 @@ Returns all project IDs from Takeoff.
 
 ## 6. Configuration
 
-| Service | Key | Value |
-|---------|-----|-------|
-| Takeoff | `PeerServices:EstimatorBaseUrl` | `https://localhost:5002/` |
-| Takeoff | `PeerServices:HttpTimeoutSeconds` | `10` |
-| Estimator | `PeerServices:TakeoffBaseUrl` | `https://localhost:5001/` |
-| Estimator | `PeerServices:HttpTimeoutSeconds` | `10` |
+Each service requires the base URL of the other service (configured under `PeerServices`).
+
+**Takeoff configuration keys**:
+- `EstimatorBaseUrl` (string): Base URL of Estimator service
+- `HttpTimeoutSeconds` (int): HTTP client timeout in seconds (default 10)
+
+**Estimator configuration keys**:
+- `TakeoffBaseUrl` (string): Base URL of Takeoff service
+- `HttpTimeoutSeconds` (int): HTTP client timeout in seconds (default 10)
 
 ---
 
 ## 7. Error Handling
 
-- **Callbacks are fire-and-forget**: Takeoff logs warnings if Estimator unreachable.
-- **Post-deletion pulls are best-effort**: Estimator returns success regardless of pull outcome.
-- All errors logged with `ILogger`.
-
----
-
-## 8. Summary of Key Changes
-
-| Feature | Previous | Current |
-|---------|----------|---------|
-| **Condition Changed** | `/condition-changed` | `/conditions-changed` |
-| **Condition Deleted** | `/condition-deleted` (single ID) | `/conditions-deleted` (**list of IDs**) |
-| **Document Deleted** | `/document-deleted` (single ID) | `/documents-deleted` (**list of IDs**) |
-| **Page Deleted** | `/page-deleted` (single ID) | `/pages-deleted` (**list of IDs**) |
-| **Zone Deleted** | `/takeoffzone-deleted` (single ID) | `/takeoffzones-deleted` (**list of IDs**) |
-| **Project Deleted** | ❌ Not defined | ✅ `/project-deleted` (**NEW**) |
-| **Post-Deletion Sync** | Not automatic | ✅ **Automatic snapshot pull** (except project deletion) |
+- **Takeoff callbacks are fire-and-forget**: If Estimator is unreachable, Takeoff logs a warning and continues.
+- **Estimator's post-deletion snapshot pull is best-effort**: If Takeoff is unreachable during the pull, Estimator logs the error but still returns the deletion response successfully.
+- All HTTP client errors are logged with structured logging (`ILogger`).

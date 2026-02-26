@@ -60,48 +60,48 @@ public class Quantity
 }
 ```
 
-### TakeoffZone.cs
+### TakeoffZoneConditionQuantities.cs
 
 ```csharp
-public class TakeoffZone
+public class TakeoffZoneConditionQuantities
 {
-    public Guid Id { get; set; }
-    public List<Quantity> ZoneSummary { get; set; } = new();
+    public Guid TakeoffZoneId { get; set; }
+    public List<Quantity> Quantities { get; set; } = new();
 }
 ```
 
-### Page.cs
+### PageConditionQuantities.cs
 
 ```csharp
-public class Page
+public class PageConditionQuantities
 {
-    public Guid Id { get; set; }
+    public Guid PageId { get; set; }
     public int PageNumber { get; set; }
-    public List<Quantity> PageSummary { get; set; } = new();
-    public List<TakeoffZone> TakeoffZones { get; set; } = new();
+    public List<Quantity> Quantities { get; set; } = new();
+    public List<TakeoffZoneConditionQuantities> TakeoffZoneConditionQuantities { get; set; } = new();
 }
 ```
 
-### Document.cs
+### DocumentConditionQuantities.cs
 
 ```csharp
-public class Document
+public class DocumentConditionQuantities
 {
-    public Guid Id { get; set; }
-    public List<Quantity> DocumentSummary { get; set; } = new();
-    public List<Page> Pages { get; set; } = new();
+    public Guid DocumentId { get; set; }
+    public List<Quantity> Quantities { get; set; } = new();
+    public List<PageConditionQuantities> PageConditionQuantities { get; set; } = new();
 }
 ```
 
-### Condition.cs
+### ProjectConditionQuantities.cs
 
 ```csharp
-public class Condition
+public class ProjectConditionQuantities
 {
-    public Guid Id { get; set; }
+    public Guid ConditionId { get; set; }
     public Guid ProjectId { get; set; }
-    public List<Quantity> ProjectSummary { get; set; } = new();
-    public List<Document> Documents { get; set; } = new();
+    public List<Quantity> Quantities { get; set; = new();
+    public List<DocumentConditionQuantities> DocumentConditionQuantities { get; set; } = new();
 }
 ```
 
@@ -224,7 +224,7 @@ This is a singleton, thread-safe (using `lock`) in-memory store backed by `Dicti
 
 In the constructor, call `InitializeSampleData()`:
 
-1. Generate 1 project ID, 3 document IDs, 9 page IDs, 12 zone IDs.
+1. Generate 1 project ID, 3 document ID's, 9 page ID's, 12 zone ID's.
 2. Define 4 quantity sets (see Demo Application Specification §4.1).
 3. Create 4 conditions, each sharing the same document/page/zone IDs but with different quantity names.
 4. Each condition has 3 documents × 3 pages. Pages have 1 or 2 zones each. Zone values generated with `GenerateZoneQuantities(quantitySet, baseMultiplier, scaleFactor)`.
@@ -247,11 +247,11 @@ All methods are fire-and-forget (catch exceptions, log, don't rethrow):
 
 | Method | Sends To | Payload |
 |--------|----------|---------|
-| `SendConditionChangedAsync(List<Condition>)` | `POST api/interactions/condition-changed` | The full condition list |
-| `SendConditionDeletedAsync(projectId, conditionId)` | `POST api/interactions/condition-deleted` | `{ projectId, conditionId }` |
-| `SendDocumentDeletedAsync(projectId, _, documentId)` | `POST api/interactions/document-deleted` | `{ projectId, documentId }` |
-| `SendPageDeletedAsync(projectId, _, _, pageId)` | `POST api/interactions/page-deleted` | `{ projectId, pageId }` |
-| `SendTakeoffZoneDeletedAsync(projectId, _, _, _, zoneId)` | `POST api/interactions/takeoffzone-deleted` | `{ projectId, zoneId }` |
+| `SendConditionChangedAsync(List<ProjectConditionQuantities>)` | `POST /api/interactions/conditions-changed` | List of conditions with full data or diff |
+| `SendConditionDeletedAsync(projectId, conditionIds)` | `POST /api/interactions/conditions-deleted` | `{ projectId, conditionIds: List<Guid> }` |
+| `SendDocumentDeletedAsync(projectId, documentIds)` | `POST /api/interactions/documents-deleted` | `{ projectId, documentIds: List<Guid> }` |
+| `SendPageDeletedAsync(projectId, pageIds)` | `POST /api/interactions/pages-deleted` | `{ projectId, pageIds: List<Guid> }` |
+| `SendTakeoffZoneDeletedAsync(projectId, zoneIds)` | `POST /api/interactions/takeoffzones-deleted` | `{ projectId, zoneIds: List<Guid> }` |
 
 **Verify:** Takeoff.Api compiles.
 
@@ -265,7 +265,7 @@ Route: `api/interactions`. Inject `TakeoffDataStore`.
 
 | Method | Path | Action |
 |--------|------|--------|
-| `GET` | `projects/{projectId:guid}/conditions` | `_store.GetAll(projectId)` → `Ok(list)` |
+| `GET` | `projects/{projectId:guid}/conditions-all` | `_store.GetAll(projectId)` → return `List<ProjectConditionQuantities>` |
 | `GET` | `health` | `Ok("ok")` |
 
 **Verify:** Takeoff.Api compiles.
@@ -307,17 +307,17 @@ Configure the host:
 
 Create `Estimator.Api/Services/EstimatorDataStore.cs`.
 
-Singleton, thread-safe, `Dictionary<Guid, List<Condition>>`.
+Singleton, thread-safe, `Dictionary<Guid, List<ProjectConditionQuantities>>`.
 
 ### Public Methods
 
 | Method | Description |
 |--------|-------------|
-| `GetAll(projectId)` | Returns cloned conditions |
+| `GetAll(projectId)` | Returns cloned conditions for a project |
 | `Get(projectId, conditionId)` | Returns single cloned condition |
-| `ReplaceAll(projectId, List<Condition>)` | Replaces all conditions for a project |
-| `ReplaceAllProjects(List<Condition>)` | Clears all data, groups conditions by ProjectId |
-| `UpsertByCallback(List<Condition>)` | Merge by ID at each level. **Always overwrite `ProjectSummary`** from callback |
+| `ReplaceAll(projectId, List<ProjectConditionQuantities>)` | Replaces all conditions for a project |
+| `ReplaceAllProjects(List<ProjectConditionQuantities>)` | Clears all data, groups conditions by ProjectId |
+| `UpsertByCallback(List<ProjectConditionQuantities>)` | Merge by ID at each level, **always overwrite Quantities** from callback |
 | `Delete(projectId, conditionId)` | Delete by condition ID |
 | `DeleteDocument(projectId, documentId)` | Search all conditions for document by ID |
 | `DeletePage(projectId, pageId)` | Search all conditions/documents for page by ID |
@@ -330,18 +330,18 @@ For each incoming condition:
 1. If condition doesn't exist locally → insert clone.
 2. If condition exists → merge documents by ID:
    - New document → add clone.
-   - Existing document → overwrite `DocumentSummary`, merge pages by ID:
+   - Existing document → overwrite `Quantities`, merge pages by ID:
      - New page → add clone.
-     - Existing page → overwrite `PageSummary`, merge zones by ID:
+     - Existing page → overwrite `Quantities`, merge zones by ID:
        - New zone → add clone.
-       - Existing zone → overwrite `ZoneSummary`.
-3. **Always** overwrite `existing.ProjectSummary` with `changed.ProjectSummary`.
+       - Existing zone → overwrite `Quantities`.
+3. **Always** overwrite `existing.Quantities` (ProjectSummary) with `changed.Quantities`.
 
 ### Private Methods
 
-- `Clone(Condition)`, `Clone(Document)`, `Clone(Page)`, `Clone(TakeoffZone)`, `Clone(Quantity)` — deep clone helpers.
+- `Clone()` methods for deep cloning all contract types.
 
-**Important:** EstimatorDataStore does NOT have `ComputeSummaries`. It trusts summaries from Takeoff.
+**Important:** EstimatorDataStore does NOT compute summaries. It trusts summaries from Takeoff.
 
 **Verify:** Estimator.Api compiles.
 
@@ -357,10 +357,10 @@ Constructor takes `HttpClient` and `ILogger<TakeoffClient>`.
 
 | Method | Calls | Returns |
 |--------|-------|---------|
-| `GetAllConditionsAsync(projectId)` | `GET api/demo/projects/{projectId}/conditions` | `List<Condition>` |
-| `GetAllProjectIdsAsync()` | `GET api/demo/projects` | `List<Guid>` |
-| `PullSnapshotAsync()` | Calls `GetAllProjectIdsAsync`, then `GetAllConditionsAsync` for each | `List<Condition>` |
-| `PullProjectSnapshotAsync(projectId)` | Calls `GetAllConditionsAsync(projectId)` | `List<Condition>` |
+| `GetAllConditionsAsync(projectId)` | `GET /api/interactions/projects/{projectId}/conditions-all` | `List<ProjectConditionQuantities>` |
+| `GetAllProjectIdsAsync()` | `GET /api/demo/projects` | `List<Guid>` |
+| `PullSnapshotAsync()` | Calls `GetAllProjectIdsAsync`, then `GetAllConditionsAsync` for each | `List<ProjectConditionQuantities>` |
+| `PullProjectSnapshotAsync(projectId)` | Calls `GetAllConditionsAsync(projectId)` | `List<ProjectConditionQuantities>` |
 
 All methods log errors and rethrow on failure.
 
@@ -378,23 +378,15 @@ Route: `api/interactions`. Inject `TakeoffClient` and `EstimatorDataStore`.
 
 | Method | Path | Action |
 |--------|------|--------|
-| `POST` | `condition-changed` | Body: `List<Condition>` → `_store.UpsertByCallback()` → `Ok(result)` |
-| `POST` | `condition-deleted` | Body: `{ projectId, conditionId }` → delete locally → pull project snapshot from Takeoff → replace local data |
-| `POST` | `document-deleted` | Body: `{ projectId, documentId }` → delete locally → pull project snapshot |
-| `POST` | `page-deleted` | Body: `{ projectId, pageId }` → delete locally → pull project snapshot |
-| `POST` | `takeoffzone-deleted` | Body: `{ projectId, zoneId }` → delete locally → pull project snapshot |
+| `POST` | `conditions-changed` | Body: `List<ProjectConditionQuantities>` → `_store.UpsertByCallback()` → `Ok(result)` |
+| `POST` | `conditions-deleted` | Body: `{ projectId, conditionIds }` → delete locally → pull project snapshot → replace local data |
+| `POST` | `documents-deleted` | Body: `{ projectId, documentIds }` → delete locally → pull project snapshot |
+| `POST` | `pages-deleted` | Body: `{ projectId, pageIds }` → delete locally → pull project snapshot |
+| `POST` | `takeoffzones-deleted` | Body: `{ projectId, zoneIds }` → delete locally → pull project snapshot |
+| `POST` | `project-deleted` | Body: `{ projectId }` → delete project locally (no snapshot pull) |
 | `GET` | `health` | `Ok("ok")` |
 
 **Post-deletion snapshot pull** is wrapped in try/catch — failure is logged but does not affect the deletion response.
-
-### Nested Request DTOs
-
-```csharp
-public class DeleteRequest { public Guid ProjectId { get; set; } public Guid ConditionId { get; set; } }
-public class DocumentDeleteRequest { public Guid ProjectId { get; set; } public Guid DocumentId { get; set; } }
-public class PageDeleteRequest { public Guid ProjectId { get; set; } public Guid PageId { get; set; } }
-public class TakeoffZoneDeleteRequest { public Guid ProjectId { get; set; } public Guid ZoneId { get; set; } }
-```
 
 **Verify:** Estimator.Api compiles.
 

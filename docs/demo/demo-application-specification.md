@@ -101,8 +101,6 @@ Route prefix: `/api/demo`
 | Method   | Path                                             | Description |
 |----------|--------------------------------------------------|-------------|
 | `GET`    | `/projects`                                      | List all project IDs |
-| `GET`    | `/projects/all-with-data`                        | All projects with their conditions |
-| `GET`    | `/projects/all`                                  | Same as above (alias) |
 | `GET`    | `/projects/{projectId}/conditions`               | All conditions for a project |
 | `GET`    | `/projects/{projectId}/conditions/{conditionId}` | Single condition |
 | `POST`   | `/conditions`                                    | Create a condition (+ callback to Estimator) |
@@ -175,9 +173,9 @@ HTTP client used by Estimator to pull data from Takeoff.
 | Method | Description |
 |--------|-------------|
 | `GetAllProjectIdsAsync()` | `GET /api/demo/projects` → `List<Guid>` |
-| `GetAllConditionsAsync(projectId)` | `GET /api/demo/projects/{projectId}/conditions` → `List<Condition>` |
+| `GetAllConditionsAsync(projectId)` | `GET /api/interactions/projects/{projectId}/conditions-all` → `List<ProjectConditionQuantities>` |
 | `PullSnapshotAsync()` | Gets all project IDs, then fetches conditions for each project |
-| `PullProjectSnapshotAsync(projectId)` | Fetches conditions for a single project |
+| `PullProjectSnapshotAsync(projectId)` | Fetches conditions for a single project using `/api/interactions/projects/{projectId}/conditions-all` |
 
 ### 5.3 Demo REST API (Estimator DemoController)
 
@@ -188,7 +186,6 @@ Route prefix: `/api/demo`
 | `GET`  | `/projects`                                      | List all project IDs in local store |
 | `GET`  | `/projects/{projectId}/conditions`               | All conditions for a project from local store |
 | `GET`  | `/projects/{projectId}/conditions/{conditionId}` | Single condition from local store |
-| `POST` | `/snapshot/pull`                                 | Pull snapshot for one project from Takeoff |
 | `POST` | `/pull-snapshot`                                 | Pull full snapshot (all projects) from Takeoff |
 | `GET`  | `/all-conditions`                                | All conditions across all projects from local store |
 
@@ -243,23 +240,23 @@ All Projects
 
 ```
 Takeoff UI → PUT /api/demo/conditions/{id}
-  → TakeoffDataStore.Update() → Clone + ComputeSummaries
+  → TakeoffDataStore.Update() → Clone + CalculateQuantitiesSummaries()
   → Return updated condition to UI
   → Fire-and-forget: EstimatorClient.SendConditionChangedAsync()
-    → POST /api/interactions/condition-changed to Estimator
-      → EstimatorDataStore.UpsertByCallback() (merge + overwrite ProjectSummary)
+    → POST /api/interactions/conditions-changed to Estimator
+      → EstimatorDataStore.UpsertByCallback() (merge + overwrite Quantities)
 ```
 
 ### On Deletion (Takeoff)
 
 ```
 Takeoff UI → DELETE /api/demo/projects/{pid}/zones/{zid}
-  → TakeoffDataStore.DeleteZone() → Remove zone + ComputeSummaries
+  → TakeoffDataStore.DeleteZone() → Remove zone + CalculateQuantitiesSummaries()
   → Return 204 to UI
   → Fire-and-forget: EstimatorClient.SendTakeoffZoneDeletedAsync()
-    → POST /api/interactions/takeoffzone-deleted to Estimator
+    → POST /api/interactions/takeoffzones-deleted to Estimator (with list of zone IDs)
       → EstimatorDataStore.DeleteTakeoffZone()
-      → TakeoffClient.PullProjectSnapshotAsync() → GET /api/interactions/projects/{pid}/conditions
+      → TakeoffClient.PullProjectSnapshotAsync() → GET /api/interactions/projects/{pid}/conditions-all
       → EstimatorDataStore.ReplaceAll() with fresh snapshot
 ```
 
@@ -269,6 +266,6 @@ Takeoff UI → DELETE /api/demo/projects/{pid}/zones/{zid}
 Estimator UI → POST /api/demo/pull-snapshot
   → TakeoffClient.PullSnapshotAsync()
     → GET /api/demo/projects → list of project IDs
-    → For each project: GET /api/demo/projects/{pid}/conditions
+    → For each project: GET /api/interactions/projects/{pid}/conditions-all
   → EstimatorDataStore.ReplaceAllProjects()
   → Return { success, conditionCount }
