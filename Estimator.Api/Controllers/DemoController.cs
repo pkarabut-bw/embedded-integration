@@ -25,23 +25,30 @@ namespace Estimator.Api.Controllers
         }
 
         [HttpGet("projects/{projectId:guid}/conditions")]
-        public ActionResult<List<Condition>> GetAll(Guid projectId)
+        public ActionResult<List<ProjectConditionQuantities>> GetAll(Guid projectId)
         {
             var list = _store.GetAll(projectId);
             return Ok(list);
         }
 
-        [HttpPost("snapshot/pull")]
-        public async Task<ActionResult<List<Condition>>> Pull([FromBody] ProjectRequest req)
+        [HttpPost("pull")]
+        public async Task<ActionResult<List<ProjectConditionQuantities>>> Pull([FromBody] ProjectRequest req)
         {
-            if (req.ProjectId == Guid.Empty) return BadRequest();
-            var snapshot = await _client.GetAllConditionsAsync(req.ProjectId);
-            _store.ReplaceAll(req.ProjectId, snapshot);
-            return Ok(snapshot);
+            if (req.ProjectId == Guid.Empty) return BadRequest("ProjectId required");
+            try
+            {
+                var conditions = await _client.PullProjectSnapshotAsync(req.ProjectId);
+                _store.ReplaceAll(req.ProjectId, conditions);
+                return Ok(conditions);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpGet("projects/{projectId:guid}/conditions/{conditionId:guid}")]
-        public ActionResult<Condition> Get(Guid projectId, Guid conditionId)
+        public ActionResult<ProjectConditionQuantities> Get(Guid projectId, Guid conditionId)
         {
             var c = _store.Get(projectId, conditionId);
             if (c is null) return NotFound();
@@ -67,7 +74,7 @@ namespace Estimator.Api.Controllers
         public IActionResult GetAllConditions()
         {
             var projectIds = _store.GetProjectIds();
-            var allConditions = new List<Condition>();
+            var allConditions = new List<ProjectConditionQuantities>();
             foreach (var projectId in projectIds)
             {
                 var conditions = _store.GetAll(projectId);
@@ -75,6 +82,9 @@ namespace Estimator.Api.Controllers
             }
             return Ok(allConditions);
         }
+
+        [HttpGet("health")]
+        public IActionResult Health() => Ok("ok");
 
         public class ProjectRequest { public Guid ProjectId { get; set; } }
     }

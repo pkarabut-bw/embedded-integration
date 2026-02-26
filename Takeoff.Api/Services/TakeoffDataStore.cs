@@ -5,7 +5,7 @@ namespace Takeoff.Api.Services
     public class TakeoffDataStore
     {
         private readonly object _gate = new();
-        private readonly Dictionary<Guid, List<Condition>> _data = new();
+        private readonly Dictionary<Guid, List<ProjectConditionQuantities>> _data = new();
 
         public TakeoffDataStore()
         {
@@ -60,67 +60,67 @@ namespace Takeoff.Api.Services
             };
 
             // Create 4 conditions with shared structure but unique quantity names per condition
-            var conditions = new List<Condition>();
+            var conditions = new List<ProjectConditionQuantities>();
             
             for (int condIdx = 0; condIdx < 4; condIdx++)
             {
                 var quantitySet = quantitySetsByCondition[condIdx];
-                var documents = new List<Document>();
+                var documents = new List<DocumentConditionQuantities>();
                 
                 // Base values for this condition (to make values different per condition)
                 double baseMultiplier = 50.0 + (condIdx * 25.0);
                 
                 // Document 1: 3 pages with zones
-                documents.Add(new Document
+                documents.Add(new DocumentConditionQuantities
                 {
-                    Id = docIds[0],
-                    DocumentSummary = new(),
-                    Pages = new List<Page>
+                    DocumentId = docIds[0],
+                    Quantities = new(),
+                    PageConditionQuantities = new List<PageConditionQuantities>
                     {
-                        new Page
+                        new PageConditionQuantities
                         {
-                            Id = pageIds[0],
+                            PageId = pageIds[0],
                             PageNumber = 1,
-                            PageSummary = new(),
-                            TakeoffZones = new List<TakeoffZone>
+                            Quantities = new(),
+                            TakeoffZoneConditionQuantities = new List<TakeoffZoneConditionQuantities>
                             {
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[0],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.0)
+                                    TakeoffZoneId = zoneIds[0],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.0)
                                 }
                             }
                         },
-                        new Page
+                        new PageConditionQuantities
                         {
-                            Id = pageIds[1],
+                            PageId = pageIds[1],
                             PageNumber = 2,
-                            PageSummary = new(),
-                            TakeoffZones = new List<TakeoffZone>
+                            Quantities = new(),
+                            TakeoffZoneConditionQuantities = new List<TakeoffZoneConditionQuantities>
                             {
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[1],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.8)
+                                    TakeoffZoneId = zoneIds[1],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.8)
                                 },
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[2],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.6)
+                                    TakeoffZoneId = zoneIds[2],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.6)
                                 }
                             }
                         },
-                        new Page
+                        new PageConditionQuantities
                         {
-                            Id = pageIds[2],
+                            PageId = pageIds[2],
                             PageNumber = 3,
-                            PageSummary = new(),
-                            TakeoffZones = new List<TakeoffZone>
+                            Quantities = new(),
+                            TakeoffZoneConditionQuantities = new List<TakeoffZoneConditionQuantities>
                             {
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[3],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.9)
+                                    TakeoffZoneId = zoneIds[3],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.9)
                                 }
                             }
                         }
@@ -128,56 +128,56 @@ namespace Takeoff.Api.Services
                 });
 
                 // Document 2: 3 pages with zones
-                documents.Add(new Document
+                documents.Add(new DocumentConditionQuantities
                 {
-                    Id = docIds[1],
-                    DocumentSummary = new(),
-                    Pages = new List<Page>
+                    DocumentId = docIds[1],
+                    Quantities = new(),
+                    PageConditionQuantities = new List<PageConditionQuantities>
                     {
-                        new Page
+                        new PageConditionQuantities
                         {
-                            Id = pageIds[3],
+                            PageId = pageIds[3],
                             PageNumber = 1,
-                            PageSummary = new(),
-                            TakeoffZones = new List<TakeoffZone>
+                            Quantities = new(),
+                            TakeoffZoneConditionQuantities = new List<TakeoffZoneConditionQuantities>
                             {
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[4],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.2)
+                                    TakeoffZoneId = zoneIds[4],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.2)
                                 }
                             }
                         },
-                        new Page
+                        new PageConditionQuantities
                         {
-                            Id = pageIds[4],
+                            PageId = pageIds[4],
                             PageNumber = 2,
-                            PageSummary = new(),
-                            TakeoffZones = new List<TakeoffZone>
+                            Quantities = new(),
+                            TakeoffZoneConditionQuantities = new List<TakeoffZoneConditionQuantities>
                             {
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[5],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.1)
+                                    TakeoffZoneId = zoneIds[5],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.1)
                                 },
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[6],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.7)
+                                    TakeoffZoneId = zoneIds[6],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.7)
                                 }
                             }
                         },
-                        new Page
+                        new PageConditionQuantities
                         {
-                            Id = pageIds[5],
+                            PageId = pageIds[5],
                             PageNumber = 3,
-                            PageSummary = new(),
-                            TakeoffZones = new List<TakeoffZone>
+                            Quantities = new(),
+                            TakeoffZoneConditionQuantities = new List<TakeoffZoneConditionQuantities>
                             {
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[7],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.3)
+                                    TakeoffZoneId = zoneIds[7],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.3)
                                 }
                             }
                         }
@@ -185,68 +185,68 @@ namespace Takeoff.Api.Services
                 });
 
                 // Document 3: 3 pages with zones
-                documents.Add(new Document
+                documents.Add(new DocumentConditionQuantities
                 {
-                    Id = docIds[2],
-                    DocumentSummary = new(),
-                    Pages = new List<Page>
+                    DocumentId = docIds[2],
+                    Quantities = new(),
+                    PageConditionQuantities = new List<PageConditionQuantities>
                     {
-                        new Page
+                        new PageConditionQuantities
                         {
-                            Id = pageIds[6],
+                            PageId = pageIds[6],
                             PageNumber = 1,
-                            PageSummary = new(),
-                            TakeoffZones = new List<TakeoffZone>
+                            Quantities = new(),
+                            TakeoffZoneConditionQuantities = new List<TakeoffZoneConditionQuantities>
                             {
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[8],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.95)
+                                    TakeoffZoneId = zoneIds[8],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.95)
                                 }
                             }
                         },
-                        new Page
+                        new PageConditionQuantities
                         {
-                            Id = pageIds[7],
+                            PageId = pageIds[7],
                             PageNumber = 2,
-                            PageSummary = new(),
-                            TakeoffZones = new List<TakeoffZone>
+                            Quantities = new(),
+                            TakeoffZoneConditionQuantities = new List<TakeoffZoneConditionQuantities>
                             {
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[9],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.85)
+                                    TakeoffZoneId = zoneIds[9],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 0.85)
                                 },
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[10],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.05)
+                                    TakeoffZoneId = zoneIds[10],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.05)
                                 }
                             }
                         },
-                        new Page
+                        new PageConditionQuantities
                         {
-                            Id = pageIds[8],
+                            PageId = pageIds[8],
                             PageNumber = 3,
-                            PageSummary = new(),
-                            TakeoffZones = new List<TakeoffZone>
+                            Quantities = new(),
+                            TakeoffZoneConditionQuantities = new List<TakeoffZoneConditionQuantities>
                             {
-                                new TakeoffZone
+                                new TakeoffZoneConditionQuantities
                                 {
-                                    Id = zoneIds[11],
-                                    ZoneSummary = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.15)
+                                    TakeoffZoneId = zoneIds[11],
+                                    Quantities = GenerateZoneQuantities(quantitySet, baseMultiplier, 1.15)
                                 }
                             }
                         }
                     }
                 });
 
-                conditions.Add(new Condition
+                conditions.Add(new ProjectConditionQuantities
                 {
-                    Id = Guid.NewGuid(),
+                    ConditionId = Guid.NewGuid(),
                     ProjectId = projectId,
-                    ProjectSummary = new(),
-                    Documents = documents
+                    Quantities = new(),
+                    DocumentConditionQuantities = documents
                 });
             }
 
@@ -271,17 +271,17 @@ namespace Takeoff.Api.Services
             return quantities;
         }
 
-        private void ComputeSummaries(Condition condition)
+        private void ComputeSummaries(ProjectConditionQuantities condition)
         {
             // Compute page summaries from zones
-            foreach (var doc in condition.Documents ?? new List<Document>())
+            foreach (var doc in condition.DocumentConditionQuantities ?? new List<DocumentConditionQuantities>())
             {
-                foreach (var page in doc.Pages ?? new List<Page>())
+                foreach (var page in doc.PageConditionQuantities ?? new List<PageConditionQuantities>())
                 {
                     var quantities = new Dictionary<string, (string unit, double value)>();
-                    foreach (var zone in page.TakeoffZones ?? new List<TakeoffZone>())
+                    foreach (var zone in page.TakeoffZoneConditionQuantities ?? new List<TakeoffZoneConditionQuantities>())
                     {
-                        foreach (var q in zone.ZoneSummary ?? new List<Quantity>())
+                        foreach (var q in zone.Quantities ?? new List<Quantity>())
                         {
                             var key = q.Name + "|" + (q.Unit ?? "");
                             if (!quantities.ContainsKey(key))
@@ -291,7 +291,7 @@ namespace Takeoff.Api.Services
                             quantities[key] = (quantities[key].unit, quantities[key].value + q.Value);
                         }
                     }
-                    page.PageSummary = quantities.Select(kvp => new Quantity 
+                    page.Quantities = quantities.Select(kvp => new Quantity 
                     { 
                         Name = kvp.Key.Split('|')[0], 
                         Unit = kvp.Key.Split('|')[1], 
@@ -301,9 +301,9 @@ namespace Takeoff.Api.Services
 
                 // Compute document summaries from pages
                 var docQuantities = new Dictionary<string, (string unit, double value)>();
-                foreach (var page in doc.Pages ?? new List<Page>())
+                foreach (var page in doc.PageConditionQuantities ?? new List<PageConditionQuantities>())
                 {
-                    foreach (var q in page.PageSummary ?? new List<Quantity>())
+                    foreach (var q in page.Quantities ?? new List<Quantity>())
                     {
                         var key = q.Name + "|" + (q.Unit ?? "");
                         if (!docQuantities.ContainsKey(key))
@@ -313,7 +313,7 @@ namespace Takeoff.Api.Services
                         docQuantities[key] = (docQuantities[key].unit, docQuantities[key].value + q.Value);
                     }
                 }
-                doc.DocumentSummary = docQuantities.Select(kvp => new Quantity 
+                doc.Quantities = docQuantities.Select(kvp => new Quantity 
                 { 
                     Name = kvp.Key.Split('|')[0], 
                     Unit = kvp.Key.Split('|')[1], 
@@ -323,9 +323,9 @@ namespace Takeoff.Api.Services
 
             // Compute project summary from documents
             var projQuantities = new Dictionary<string, (string unit, double value)>();
-            foreach (var doc in condition.Documents ?? new List<Document>())
+            foreach (var doc in condition.DocumentConditionQuantities ?? new List<DocumentConditionQuantities>())
             {
-                foreach (var q in doc.DocumentSummary ?? new List<Quantity>())
+                foreach (var q in doc.Quantities ?? new List<Quantity>())
                 {
                     var key = q.Name + "|" + (q.Unit ?? "");
                     if (!projQuantities.ContainsKey(key))
@@ -335,7 +335,7 @@ namespace Takeoff.Api.Services
                     projQuantities[key] = (projQuantities[key].unit, projQuantities[key].value + q.Value);
                 }
             }
-            condition.ProjectSummary = projQuantities.Select(kvp => new Quantity 
+            condition.Quantities = projQuantities.Select(kvp => new Quantity 
             { 
                 Name = kvp.Key.Split('|')[0], 
                 Unit = kvp.Key.Split('|')[1], 
@@ -347,57 +347,57 @@ namespace Takeoff.Api.Services
         /// Public wrapper to compute summaries on a condition.
         /// Used before computing diff to ensure summaries are correct.
         /// </summary>
-        public void ComputeSummariesPublic(Condition condition)
+        public void ComputeSummariesPublic(ProjectConditionQuantities condition)
         {
             ComputeSummaries(condition);
         }
 
-        private List<Document> CloneDocuments(List<Document> documents)
+        private List<DocumentConditionQuantities> CloneDocuments(List<DocumentConditionQuantities> documents)
         {
-            return documents.Select(d => new Document
+            return documents.Select(d => new DocumentConditionQuantities
             {
-                Id = d.Id,
-                DocumentSummary = new List<Quantity>(d.DocumentSummary),
-                Pages = d.Pages.Select(p => new Page
+                DocumentId = d.DocumentId,
+                Quantities = new List<Quantity>(d.Quantities),
+                PageConditionQuantities = d.PageConditionQuantities.Select(p => new PageConditionQuantities
                 {
-                    Id = p.Id,
+                    PageId = p.PageId,
                     PageNumber = p.PageNumber,
-                    PageSummary = new List<Quantity>(p.PageSummary),
-                    TakeoffZones = p.TakeoffZones.Select(z => new TakeoffZone
+                    Quantities = new List<Quantity>(p.Quantities),
+                    TakeoffZoneConditionQuantities = p.TakeoffZoneConditionQuantities.Select(z => new TakeoffZoneConditionQuantities
                     {
-                        Id = z.Id,
-                        ZoneSummary = new List<Quantity>(z.ZoneSummary)
+                        TakeoffZoneId = z.TakeoffZoneId,
+                        Quantities = new List<Quantity>(z.Quantities)
                     }).ToList()
                 }).ToList()
             }).ToList();
         }
 
-        public IReadOnlyList<Condition> GetAll(Guid projectId)
+        public IReadOnlyList<ProjectConditionQuantities> GetAll(Guid projectId)
         {
             lock (_gate)
             {
-                if (!_data.TryGetValue(projectId, out var list)) return new List<Condition>();
+                if (!_data.TryGetValue(projectId, out var list)) return new List<ProjectConditionQuantities>();
                 return list.Select(Clone).ToList();
             }
         }
 
-        public Condition? Get(Guid projectId, Guid conditionId)
+        public ProjectConditionQuantities? Get(Guid projectId, Guid conditionId)
         {
             lock (_gate)
             {
                 if (!_data.TryGetValue(projectId, out var list)) return null;
-                var c = list.FirstOrDefault(x => x.Id == conditionId);
+                var c = list.FirstOrDefault(x => x.ConditionId == conditionId);
                 return c is null ? null : Clone(c);
             }
         }
 
-        public Condition Add(Condition condition)
+        public ProjectConditionQuantities Add(ProjectConditionQuantities condition)
         {
             lock (_gate)
             {
                 if (!_data.TryGetValue(condition.ProjectId, out var list))
                 {
-                    list = new List<Condition>();
+                    list = new List<ProjectConditionQuantities>();
                     _data[condition.ProjectId] = list;
                 }
 
@@ -407,17 +407,17 @@ namespace Takeoff.Api.Services
             }
         }
 
-        public Condition Update(Condition condition)
+        public ProjectConditionQuantities Update(ProjectConditionQuantities condition)
         {
             lock (_gate)
             {
                 if (!_data.TryGetValue(condition.ProjectId, out var list))
                 {
-                    list = new List<Condition>();
+                    list = new List<ProjectConditionQuantities>();
                     _data[condition.ProjectId] = list;
                 }
 
-                var idx = list.FindIndex(x => x.Id == condition.Id);
+                var idx = list.FindIndex(x => x.ConditionId == condition.ConditionId);
                 var copy = Clone(condition);
                 if (idx >= 0) 
                 {
@@ -438,7 +438,7 @@ namespace Takeoff.Api.Services
             lock (_gate)
             {
                 if (!_data.TryGetValue(projectId, out var list)) return false;
-                var idx = list.FindIndex(x => x.Id == conditionId);
+                var idx = list.FindIndex(x => x.ConditionId == conditionId);
                 if (idx < 0) return false;
                 list.RemoveAt(idx);
                 return true;
@@ -453,12 +453,12 @@ namespace Takeoff.Api.Services
                 bool deleted = false;
                 foreach (var cond in conditions)
                 {
-                    if (cond.Documents != null)
+                    if (cond.DocumentConditionQuantities != null)
                     {
-                        var idx = cond.Documents.FindIndex(d => d.Id == documentId);
+                        var idx = cond.DocumentConditionQuantities.FindIndex(d => d.DocumentId == documentId);
                         if (idx >= 0)
                         {
-                            cond.Documents.RemoveAt(idx);
+                            cond.DocumentConditionQuantities.RemoveAt(idx);
                             deleted = true;
                         }
                     }
@@ -480,14 +480,14 @@ namespace Takeoff.Api.Services
                 bool deleted = false;
                 foreach (var cond in conditions)
                 {
-                    foreach (var doc in cond.Documents ?? new List<Document>())
+                    foreach (var doc in cond.DocumentConditionQuantities ?? new List<DocumentConditionQuantities>())
                     {
-                        if (doc.Pages != null)
+                        if (doc.PageConditionQuantities != null)
                         {
-                            var idx = doc.Pages.FindIndex(p => p.Id == pageId);
+                            var idx = doc.PageConditionQuantities.FindIndex(p => p.PageId == pageId);
                             if (idx >= 0)
                             {
-                                doc.Pages.RemoveAt(idx);
+                                doc.PageConditionQuantities.RemoveAt(idx);
                                 deleted = true;
                             }
                         }
@@ -510,16 +510,16 @@ namespace Takeoff.Api.Services
                 bool deleted = false;
                 foreach (var cond in conditions)
                 {
-                    foreach (var doc in cond.Documents ?? new List<Document>())
+                    foreach (var doc in cond.DocumentConditionQuantities ?? new List<DocumentConditionQuantities>())
                     {
-                        foreach (var page in doc.Pages ?? new List<Page>())
+                        foreach (var page in doc.PageConditionQuantities ?? new List<PageConditionQuantities>())
                         {
-                            if (page.TakeoffZones != null)
+                            if (page.TakeoffZoneConditionQuantities != null)
                             {
-                                var idx = page.TakeoffZones.FindIndex(z => z.Id == zoneId);
+                                var idx = page.TakeoffZoneConditionQuantities.FindIndex(z => z.TakeoffZoneId == zoneId);
                                 if (idx >= 0)
                                 {
-                                    page.TakeoffZones.RemoveAt(idx);
+                                    page.TakeoffZoneConditionQuantities.RemoveAt(idx);
                                     deleted = true;
                                 }
                             }
@@ -536,7 +536,7 @@ namespace Takeoff.Api.Services
         }
 
         // Snapshot replacement (used by demo Pull flow)
-        public void UpdateFromSnapshot(Guid projectId, List<Condition> snapshot)
+        public void UpdateFromSnapshot(Guid projectId, List<ProjectConditionQuantities> snapshot)
         {
             lock (_gate)
             {
@@ -556,101 +556,101 @@ namespace Takeoff.Api.Services
         /// Computes the differential update by comparing a new condition with the existing one.
         /// Only includes changed documents/pages/zones.
         /// </summary>
-        public Condition ComputeDiff(Condition newCondition, Guid projectId, Guid conditionId)
+        public ProjectConditionQuantities ComputeDiff(ProjectConditionQuantities newCondition, Guid projectId, Guid conditionId)
         {
             lock (_gate)
             {
                 if (!_data.TryGetValue(projectId, out var list)) 
                     return Clone(newCondition); // New project, return full condition
 
-                var existingCondition = list.FirstOrDefault(x => x.Id == conditionId);
+                var existingCondition = list.FirstOrDefault(x => x.ConditionId == conditionId);
                 
                 // If no existing condition, return full new condition
                 if (existingCondition == null)
                     return Clone(newCondition);
 
                 // Compute diff by comparing structures
-                var diff = new Condition
+                var diff = new ProjectConditionQuantities
                 {
-                    Id = newCondition.Id,
+                    ConditionId = newCondition.ConditionId,
                     ProjectId = newCondition.ProjectId,
-                    ProjectSummary = Clone(newCondition.ProjectSummary),
-                    Documents = new List<Document>()
+                    Quantities = Clone(newCondition.Quantities),
+                    DocumentConditionQuantities = new List<DocumentConditionQuantities>()
                 };
 
                 // Find changed documents
-                var existingDocMap = new Dictionary<Guid, Document>();
-                foreach (var existingDoc in existingCondition.Documents ?? new List<Document>())
+                var existingDocMap = new Dictionary<Guid, DocumentConditionQuantities>();
+                foreach (var existingDoc in existingCondition.DocumentConditionQuantities ?? new List<DocumentConditionQuantities>())
                 {
-                    existingDocMap[existingDoc.Id] = existingDoc;
+                    existingDocMap[existingDoc.DocumentId] = existingDoc;
                 }
 
-                foreach (var newDoc in newCondition.Documents ?? new List<Document>())
+                foreach (var newDoc in newCondition.DocumentConditionQuantities ?? new List<DocumentConditionQuantities>())
                 {
-                    var existingDoc = existingDocMap.ContainsKey(newDoc.Id) ? existingDocMap[newDoc.Id] : null;
-                    var changedPages = new List<Page>();
+                    var existingDoc = existingDocMap.ContainsKey(newDoc.DocumentId) ? existingDocMap[newDoc.DocumentId] : null;
+                    var changedPages = new List<PageConditionQuantities>();
 
                     // Find changed pages within this document
-                    var existingPageMap = new Dictionary<Guid, Page>();
+                    var existingPageMap = new Dictionary<Guid, PageConditionQuantities>();
                     if (existingDoc != null)
                     {
-                        foreach (var existingPage in existingDoc.Pages ?? new List<Page>())
+                        foreach (var existingPage in existingDoc.PageConditionQuantities ?? new List<PageConditionQuantities>())
                         {
-                            existingPageMap[existingPage.Id] = existingPage;
+                            existingPageMap[existingPage.PageId] = existingPage;
                         }
                     }
 
-                    foreach (var newPage in newDoc.Pages ?? new List<Page>())
+                    foreach (var newPage in newDoc.PageConditionQuantities ?? new List<PageConditionQuantities>())
                     {
-                        var existingPage = existingPageMap.ContainsKey(newPage.Id) ? existingPageMap[newPage.Id] : null;
-                        var changedZones = new List<TakeoffZone>();
+                        var existingPage = existingPageMap.ContainsKey(newPage.PageId) ? existingPageMap[newPage.PageId] : null;
+                        var changedZones = new List<TakeoffZoneConditionQuantities>();
 
                         // Find changed zones within this page
-                        var existingZoneMap = new Dictionary<Guid, TakeoffZone>();
+                        var existingZoneMap = new Dictionary<Guid, TakeoffZoneConditionQuantities>();
                         if (existingPage != null)
                         {
-                            foreach (var existingZone in existingPage.TakeoffZones ?? new List<TakeoffZone>())
+                            foreach (var existingZone in existingPage.TakeoffZoneConditionQuantities ?? new List<TakeoffZoneConditionQuantities>())
                             {
-                                existingZoneMap[existingZone.Id] = existingZone;
+                                existingZoneMap[existingZone.TakeoffZoneId] = existingZone;
                             }
                         }
 
-                        foreach (var newZone in newPage.TakeoffZones ?? new List<TakeoffZone>())
+                        foreach (var newZone in newPage.TakeoffZoneConditionQuantities ?? new List<TakeoffZoneConditionQuantities>())
                         {
-                            var existingZone = existingZoneMap.ContainsKey(newZone.Id) ? existingZoneMap[newZone.Id] : null;
+                            var existingZone = existingZoneMap.ContainsKey(newZone.TakeoffZoneId) ? existingZoneMap[newZone.TakeoffZoneId] : null;
                             
                             // Check if zone summary changed
-                            if (existingZone == null || !QuantitiesEqual(newZone.ZoneSummary, existingZone.ZoneSummary))
+                            if (existingZone == null || !QuantitiesEqual(newZone.Quantities, existingZone.Quantities))
                             {
-                                changedZones.Add(new TakeoffZone
+                                changedZones.Add(new TakeoffZoneConditionQuantities
                                 {
-                                    Id = newZone.Id,
-                                    ZoneSummary = Clone(newZone.ZoneSummary)
+                                    TakeoffZoneId = newZone.TakeoffZoneId,
+                                    Quantities = Clone(newZone.Quantities)
                                 });
                             }
                         }
 
                         // Include page only if it has changed zones or is new
-                        if (changedZones.Any() || existingPage == null || !QuantitiesEqual(newPage.PageSummary, existingPage.PageSummary))
+                        if (changedZones.Any() || existingPage == null || !QuantitiesEqual(newPage.Quantities, existingPage.Quantities))
                         {
-                            changedPages.Add(new Page
+                            changedPages.Add(new PageConditionQuantities
                             {
-                                Id = newPage.Id,
+                                PageId = newPage.PageId,
                                 PageNumber = newPage.PageNumber,
-                                PageSummary = Clone(newPage.PageSummary),
-                                TakeoffZones = changedZones
+                                Quantities = Clone(newPage.Quantities),
+                                TakeoffZoneConditionQuantities = changedZones
                             });
                         }
                     }
 
                     // Include document only if it has changed pages or is new
-                    if (changedPages.Any() || existingDoc == null || !QuantitiesEqual(newDoc.DocumentSummary, existingDoc.DocumentSummary))
+                    if (changedPages.Any() || existingDoc == null || !QuantitiesEqual(newDoc.Quantities, existingDoc.Quantities))
                     {
-                        diff.Documents.Add(new Document
+                        diff.DocumentConditionQuantities.Add(new DocumentConditionQuantities
                         {
-                            Id = newDoc.Id,
-                            DocumentSummary = Clone(newDoc.DocumentSummary),
-                            Pages = changedPages
+                            DocumentId = newDoc.DocumentId,
+                            Quantities = Clone(newDoc.Quantities),
+                            PageConditionQuantities = changedPages
                         });
                     }
                 }
@@ -687,14 +687,14 @@ namespace Takeoff.Api.Services
             return quantities.Select(q => new Quantity { Name = q.Name, Unit = q.Unit, Value = q.Value }).ToList();
         }
 
-        private static Condition Clone(Condition src)
+        private static ProjectConditionQuantities Clone(ProjectConditionQuantities src)
         {
-            return new Condition
+            return new ProjectConditionQuantities
             {
-                Id = src.Id,
+                ConditionId = src.ConditionId,
                 ProjectId = src.ProjectId,
-                ProjectSummary = src.ProjectSummary?.Select(q => new Quantity { Name = q.Name, Unit = q.Unit, Value = q.Value }).ToList() ?? new List<Quantity>(),
-                Documents = src.Documents?.Select(d => new Document { Id = d.Id, DocumentSummary = d.DocumentSummary?.Select(q => new Quantity { Name = q.Name, Unit = q.Unit, Value = q.Value }).ToList() ?? new List<Quantity>(), Pages = d.Pages?.Select(p => new Page { Id = p.Id, PageNumber = p.PageNumber, PageSummary = p.PageSummary?.Select(q => new Quantity { Name = q.Name, Unit = q.Unit, Value = q.Value }).ToList() ?? new List<Quantity>(), TakeoffZones = p.TakeoffZones?.Select(tz => new TakeoffZone { Id = tz.Id, ZoneSummary = tz.ZoneSummary?.Select(q => new Quantity { Name = q.Name, Unit = q.Unit, Value = q.Value }).ToList() ?? new List<Quantity>() }).ToList() ?? new List<TakeoffZone>() }).ToList() ?? new List<Page>() }).ToList() ?? new List<Document>()
+                Quantities = src.Quantities?.Select(q => new Quantity { Name = q.Name, Unit = q.Unit, Value = q.Value }).ToList() ?? new List<Quantity>(),
+                DocumentConditionQuantities = src.DocumentConditionQuantities?.Select(d => new DocumentConditionQuantities { DocumentId = d.DocumentId, Quantities = d.Quantities?.Select(q => new Quantity { Name = q.Name, Unit = q.Unit, Value = q.Value }).ToList() ?? new List<Quantity>(), PageConditionQuantities = d.PageConditionQuantities?.Select(p => new PageConditionQuantities { PageId = p.PageId, PageNumber = p.PageNumber, Quantities = p.Quantities?.Select(q => new Quantity { Name = q.Name, Unit = q.Unit, Value = q.Value }).ToList() ?? new List<Quantity>(), TakeoffZoneConditionQuantities = p.TakeoffZoneConditionQuantities?.Select(tz => new TakeoffZoneConditionQuantities { TakeoffZoneId = tz.TakeoffZoneId, Quantities = tz.Quantities?.Select(q => new Quantity { Name = q.Name, Unit = q.Unit, Value = q.Value }).ToList() ?? new List<Quantity>() }).ToList() ?? new List<TakeoffZoneConditionQuantities>() }).ToList() ?? new List<PageConditionQuantities>() }).ToList() ?? new List<DocumentConditionQuantities>()
             };
         }
     }

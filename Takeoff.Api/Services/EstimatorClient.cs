@@ -21,19 +21,19 @@ namespace Takeoff.Api.Services
         /// The Condition object acts as both full update and diff - 
         /// it contains only the changed documents/pages/zones when used as a diff.
         /// </summary>
-        public async Task SendConditionChangedAsync(Condition condition, CancellationToken ct = default)
+        public async Task SendConditionChangedAsync(ProjectConditionQuantities condition, CancellationToken ct = default)
         {
             try
             {
-                var res = await _client.PostAsJsonAsync("api/interactions/condition-changed", new List<Condition> { condition }, ct);
+                var res = await _client.PostAsJsonAsync("api/interactions/conditions-changed", new List<ProjectConditionQuantities> { condition }, ct);
                 if (!res.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Estimator responded with {StatusCode} to condition-changed", res.StatusCode);
+                    _logger.LogWarning("Estimator responded with {StatusCode} to conditions-changed", res.StatusCode);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send condition-changed to Estimator");
+                _logger.LogError(ex, "Failed to send conditions-changed to Estimator");
             }
         }
 
@@ -41,16 +41,16 @@ namespace Takeoff.Api.Services
         {
             try
             {
-                var payload = new { ProjectId = projectId, ConditionId = conditionId };
-                var res = await _client.PostAsJsonAsync("api/interactions/condition-deleted", payload, ct);
+                var payload = new { ProjectId = projectId, ConditionIds = new List<Guid> { conditionId } };
+                var res = await _client.PostAsJsonAsync("api/interactions/conditions-deleted", payload, ct);
                 if (!res.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Estimator responded with {StatusCode} to condition-deleted", res.StatusCode);
+                    _logger.LogWarning("Estimator responded with {StatusCode} to conditions-deleted", res.StatusCode);
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send condition-deleted to Estimator");
+                _logger.LogError(ex, "Failed to send conditions-deleted to Estimator");
             }
         }
 
@@ -58,13 +58,13 @@ namespace Takeoff.Api.Services
         {
             try
             {
-                var payload = new { ProjectId = projectId, DocumentId = documentId };
-                var res = await _client.PostAsJsonAsync("api/interactions/document-deleted", payload, ct);
-                if (!res.IsSuccessStatusCode) _logger.LogWarning("Estimator responded with {StatusCode} to document-deleted", res.StatusCode);
+                var payload = new { ProjectId = projectId, DocumentIds = new List<Guid> { documentId } };
+                var res = await _client.PostAsJsonAsync("api/interactions/documents-deleted", payload, ct);
+                if (!res.IsSuccessStatusCode) _logger.LogWarning("Estimator responded with {StatusCode} to documents-deleted", res.StatusCode);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send document-deleted to Estimator");
+                _logger.LogError(ex, "Failed to send documents-deleted to Estimator");
             }
         }
 
@@ -72,13 +72,13 @@ namespace Takeoff.Api.Services
         {
             try
             {
-                var payload = new { ProjectId = projectId, PageId = pageId };
-                var res = await _client.PostAsJsonAsync("api/interactions/page-deleted", payload, ct);
-                if (!res.IsSuccessStatusCode) _logger.LogWarning("Estimator responded with {StatusCode} to page-deleted", res.StatusCode);
+                var payload = new { ProjectId = projectId, PageIds = new List<Guid> { pageId } };
+                var res = await _client.PostAsJsonAsync("api/interactions/pages-deleted", payload, ct);
+                if (!res.IsSuccessStatusCode) _logger.LogWarning("Estimator responded with {StatusCode} to pages-deleted", res.StatusCode);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send page-deleted to Estimator");
+                _logger.LogError(ex, "Failed to send pages-deleted to Estimator");
             }
         }
 
@@ -86,13 +86,13 @@ namespace Takeoff.Api.Services
         {
             try
             {
-                var payload = new { ProjectId = projectId, ZoneId = zoneId };
-                var res = await _client.PostAsJsonAsync("api/interactions/takeoffzone-deleted", payload, ct);
-                if (!res.IsSuccessStatusCode) _logger.LogWarning("Estimator responded with {StatusCode} to takeoffzone-deleted", res.StatusCode);
+                var payload = new { ProjectId = projectId, ZoneIds = new List<Guid> { zoneId } };
+                var res = await _client.PostAsJsonAsync("api/interactions/takeoffzones-deleted", payload, ct);
+                if (!res.IsSuccessStatusCode) _logger.LogWarning("Estimator responded with {StatusCode} to takeoffzones-deleted", res.StatusCode);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to send takeoffzone-deleted to Estimator");
+                _logger.LogError(ex, "Failed to send takeoffzones-deleted to Estimator");
             }
         }
     }

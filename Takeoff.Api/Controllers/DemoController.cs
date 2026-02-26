@@ -24,47 +24,15 @@ namespace Takeoff.Api.Controllers
             return Ok(ids);
         }
 
-        [HttpGet("projects/all-with-data")]
-        public ActionResult<List<ProjectDataDto>> GetAllProjectsWithData()
-        {
-            var projectIds = _store.GetProjectIds();
-            var result = new List<ProjectDataDto>();
-            foreach (var projectId in projectIds)
-            {
-                result.Add(new ProjectDataDto 
-                { 
-                    ProjectId = projectId, 
-                    Conditions = _store.GetAll(projectId).ToList() 
-                });
-            }
-            return Ok(result);
-        }
-
-        [HttpGet("projects/all")]
-        public ActionResult<List<ProjectDataDto>> GetAllProjects()
-        {
-            var projectIds = _store.GetProjectIds();
-            var result = new List<ProjectDataDto>();
-            foreach (var projectId in projectIds)
-            {
-                result.Add(new ProjectDataDto 
-                { 
-                    ProjectId = projectId, 
-                    Conditions = _store.GetAll(projectId).ToList() 
-                });
-            }
-            return Ok(result);
-        }
-
         [HttpGet("projects/{projectId:guid}/conditions")]
-        public ActionResult<List<Condition>> GetAll(Guid projectId)
+        public ActionResult<List<ProjectConditionQuantities>> GetAll(Guid projectId)
         {
             var list = _store.GetAll(projectId);
             return Ok(list);
         }
 
         [HttpGet("projects/{projectId:guid}/conditions/{conditionId:guid}")]
-        public ActionResult<Condition> Get(Guid projectId, Guid conditionId)
+        public ActionResult<ProjectConditionQuantities> Get(Guid projectId, Guid conditionId)
         {
             var c = _store.Get(projectId, conditionId);
             if (c is null) return NotFound();
@@ -72,10 +40,10 @@ namespace Takeoff.Api.Controllers
         }
 
         [HttpPost("conditions")]
-        public async Task<ActionResult<Condition>> Create([FromBody] Condition condition)
+        public async Task<ActionResult<ProjectConditionQuantities>> Create([FromBody] ProjectConditionQuantities condition)
         {
             if (condition.ProjectId == Guid.Empty) return BadRequest("ProjectId required");
-            if (condition.Id == Guid.Empty) condition.Id = Guid.NewGuid();
+            if (condition.ConditionId == Guid.Empty) condition.ConditionId = Guid.NewGuid();
 
             var created = _store.Add(condition);
             // Fire-and-forget notification to Estimator (new conditions send full data)
@@ -84,15 +52,15 @@ namespace Takeoff.Api.Controllers
         }
 
         [HttpPut("conditions/{conditionId:guid}")]
-        public async Task<ActionResult<Condition>> Update(Guid conditionId, [FromBody] Condition condition)
+        public async Task<ActionResult<ProjectConditionQuantities>> Update(Guid conditionId, [FromBody] ProjectConditionQuantities condition)
         {
-            if (conditionId != condition.Id) condition.Id = conditionId;
+            if (conditionId != condition.ConditionId) condition.ConditionId = conditionId;
 
             // Compute summaries on the incoming condition BEFORE computing diff
             _store.ComputeSummariesPublic(condition);
             
             // Compute diff BEFORE updating the store (compare new with existing)
-            var diff = _store.ComputeDiff(condition, condition.ProjectId, condition.Id);
+            var diff = _store.ComputeDiff(condition, condition.ProjectId, condition.ConditionId);
             
             // Now update the store with the condition that has computed summaries
             var updated = _store.Update(condition);
@@ -148,12 +116,15 @@ namespace Takeoff.Api.Controllers
             return Ok(Guid.NewGuid());
         }
 
+        [HttpGet("health")]
+        public IActionResult Health() => Ok("ok");
+
         public class ProjectRequest { public Guid ProjectId { get; set; } }
 
         public class ProjectDataDto 
         { 
             public Guid ProjectId { get; set; }
-            public List<Condition> Conditions { get; set; } = new();
+            public List<ProjectConditionQuantities> Conditions { get; set; } = new();
         }
     }
 }

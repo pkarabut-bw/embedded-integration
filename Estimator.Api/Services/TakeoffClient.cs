@@ -15,22 +15,22 @@ namespace Estimator.Api.Services
             _logger = logger;
         }
 
-        public async Task<List<Condition>> GetAllConditionsAsync(Guid projectId, CancellationToken ct = default)
+        public async Task<List<ProjectConditionQuantities>> GetAllConditionsAsync(Guid projectId, CancellationToken ct = default)
         {
             try
             {
-                var res = await _client.GetAsync($"api/demo/projects/{projectId}/conditions", ct);
+                var res = await _client.GetAsync($"api/interactions/projects/{projectId}/conditions-all", ct);
                 if (!res.IsSuccessStatusCode)
                 {
-                    _logger.LogWarning("Takeoff responded with {StatusCode} when requesting snapshot", res.StatusCode);
+                    _logger.LogWarning("Takeoff responded with {StatusCode} when requesting conditions", res.StatusCode);
                     throw new HttpRequestException("Remote returned " + res.StatusCode);
                 }
-                var list = await res.Content.ReadFromJsonAsync<List<Condition>>(cancellationToken: ct);
-                return list ?? new List<Condition>();
+                var list = await res.Content.ReadFromJsonAsync<List<ProjectConditionQuantities>>(cancellationToken: ct);
+                return list ?? new List<ProjectConditionQuantities>();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to get snapshot from Takeoff");
+                _logger.LogError(ex, "Failed to get conditions from Takeoff");
                 throw;
             }
         }
@@ -55,16 +55,16 @@ namespace Estimator.Api.Services
             }
         }
 
-        public async Task<List<Condition>> PullSnapshotAsync(CancellationToken ct = default)
+        public async Task<List<ProjectConditionQuantities>> PullSnapshotAsync(CancellationToken ct = default)
         {
             try
             {
-                // Step 1: Get all project IDs
+                // Step 1: Get all project IDs from DemoController
                 var projectIds = await GetAllProjectIdsAsync(ct);
                 _logger.LogInformation("Pulled {ProjectCount} project IDs from Takeoff", projectIds.Count);
 
-                // Step 2: Fetch conditions for each project
-                var allConditions = new List<Condition>();
+                // Step 2: Fetch conditions for each project from InteractionsController
+                var allConditions = new List<ProjectConditionQuantities>();
                 foreach (var projectId in projectIds)
                 {
                     var conditions = await GetAllConditionsAsync(projectId, ct);
@@ -83,7 +83,7 @@ namespace Estimator.Api.Services
             }
         }
 
-        public async Task<List<Condition>> PullProjectSnapshotAsync(Guid projectId, CancellationToken ct = default)
+        public async Task<List<ProjectConditionQuantities>> PullProjectSnapshotAsync(Guid projectId, CancellationToken ct = default)
         {
             try
             {
@@ -98,10 +98,10 @@ namespace Estimator.Api.Services
             }
         }
 
-        public class ProjectSnapshot
+        public class ProjectDataDto
         {
             public Guid ProjectId { get; set; }
-            public List<Condition> Conditions { get; set; } = new();
+            public List<ProjectConditionQuantities> Conditions { get; set; } = new();
         }
     }
 }

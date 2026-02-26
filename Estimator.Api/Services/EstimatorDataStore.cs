@@ -5,28 +5,28 @@ namespace Estimator.Api.Services
     public class EstimatorDataStore
     {
         private readonly object _gate = new();
-        private readonly Dictionary<Guid, List<Condition>> _data = new();
+        private readonly Dictionary<Guid, List<ProjectConditionQuantities>> _data = new();
 
-        public IReadOnlyList<Condition> GetAll(Guid projectId)
+        public IReadOnlyList<ProjectConditionQuantities> GetAll(Guid projectId)
         {
             lock (_gate)
             {
-                if (!_data.TryGetValue(projectId, out var list)) return new List<Condition>();
+                if (!_data.TryGetValue(projectId, out var list)) return new List<ProjectConditionQuantities>();
                 return list.Select(Clone).ToList();
             }
         }
 
-        public Condition? Get(Guid projectId, Guid conditionId)
+        public ProjectConditionQuantities? Get(Guid projectId, Guid conditionId)
         {
             lock (_gate)
             {
                 if (!_data.TryGetValue(projectId, out var list)) return null;
-                var c = list.FirstOrDefault(x => x.Id == conditionId);
+                var c = list.FirstOrDefault(x => x.ConditionId == conditionId);
                 return c is null ? null : Clone(c);
             }
         }
 
-        public void ReplaceAll(Guid projectId, List<Condition> snapshot)
+        public void ReplaceAll(Guid projectId, List<ProjectConditionQuantities> snapshot)
         {
             lock (_gate)
             {
@@ -34,7 +34,7 @@ namespace Estimator.Api.Services
             }
         }
 
-        public void ReplaceAllProjects(List<Condition> allConditions)
+        public void ReplaceAllProjects(List<ProjectConditionQuantities> allConditions)
         {
             lock (_gate)
             {
@@ -43,7 +43,7 @@ namespace Estimator.Api.Services
                 {
                     if (!_data.TryGetValue(cond.ProjectId, out var list))
                     {
-                        list = new List<Condition>();
+                        list = new List<ProjectConditionQuantities>();
                         _data[cond.ProjectId] = list;
                     }
                     list.Add(Clone(cond));
@@ -51,24 +51,24 @@ namespace Estimator.Api.Services
             }
         }
 
-        public List<Condition> UpsertByCallback(List<Condition> changedList)
+        public List<ProjectConditionQuantities> UpsertByCallback(List<ProjectConditionQuantities> changedList)
         {
             lock (_gate)
             {
-                var result = new List<Condition>();
+                var result = new List<ProjectConditionQuantities>();
                 foreach (var changed in changedList)
                 {
                     if (changed == null) continue;
                     if (changed.ProjectId == Guid.Empty) continue;
-                    changed.Documents ??= new List<Document>();
+                    changed.DocumentConditionQuantities ??= new List<DocumentConditionQuantities>();
 
                     if (!_data.TryGetValue(changed.ProjectId, out var list))
                     {
-                        list = new List<Condition>();
+                        list = new List<ProjectConditionQuantities>();
                         _data[changed.ProjectId] = list;
                     }
 
-                    var existing = list.FirstOrDefault(x => x.Id == changed.Id);
+                    var existing = list.FirstOrDefault(x => x.ConditionId == changed.ConditionId);
                     if (existing is null)
                     {
                         var copy = Clone(changed);
@@ -78,34 +78,34 @@ namespace Estimator.Api.Services
                     }
 
                     // Merge documents: update or add by Id
-                    foreach (var doc in changed.Documents)
+                    foreach (var doc in changed.DocumentConditionQuantities)
                     {
-                        var exDoc = existing.Documents.FirstOrDefault(d => d.Id == doc.Id);
+                        var exDoc = existing.DocumentConditionQuantities.FirstOrDefault(d => d.DocumentId == doc.DocumentId);
                         if (exDoc is null)
                         {
-                            existing.Documents.Add(Clone(doc));
+                            existing.DocumentConditionQuantities.Add(Clone(doc));
                         }
                         else
                         {
                             // simple replace of document summary and pages for changed doc
-                            exDoc.DocumentSummary = doc.DocumentSummary?.Select(q => Clone(q)).ToList() ?? new List<Quantity>();
+                            exDoc.Quantities = doc.Quantities?.Select(q => Clone(q)).ToList() ?? new List<Quantity>();
 
                             // merge pages by id
-                            doc.Pages ??= new List<Page>();
-                            foreach (var p in doc.Pages)
+                            doc.PageConditionQuantities ??= new List<PageConditionQuantities>();
+                            foreach (var p in doc.PageConditionQuantities)
                             {
-                                var exPage = exDoc.Pages.FirstOrDefault(pp => pp.Id == p.Id);
-                                if (exPage is null) exDoc.Pages.Add(Clone(p));
+                                var exPage = exDoc.PageConditionQuantities.FirstOrDefault(pp => pp.PageId == p.PageId);
+                                if (exPage is null) exDoc.PageConditionQuantities.Add(Clone(p));
                                 else
                                 {
-                                    exPage.PageSummary = p.PageSummary?.Select(q => Clone(q)).ToList() ?? new List<Quantity>();
+                                    exPage.Quantities = p.Quantities?.Select(q => Clone(q)).ToList() ?? new List<Quantity>();
                                     // merge takeoff zones on page level
-                                    p.TakeoffZones ??= new List<TakeoffZone>();
-                                    foreach (var tz in p.TakeoffZones)
+                                    p.TakeoffZoneConditionQuantities ??= new List<TakeoffZoneConditionQuantities>();
+                                    foreach (var tz in p.TakeoffZoneConditionQuantities)
                                     {
-                                        var exTz = exPage.TakeoffZones.FirstOrDefault(t => t.Id == tz.Id);
-                                        if (exTz is null) exPage.TakeoffZones.Add(Clone(tz));
-                                        else exTz.ZoneSummary = tz.ZoneSummary?.Select(q => Clone(q)).ToList() ?? new List<Quantity>();
+                                        var exTz = exPage.TakeoffZoneConditionQuantities.FirstOrDefault(t => t.TakeoffZoneId == tz.TakeoffZoneId);
+                                        if (exTz is null) exPage.TakeoffZoneConditionQuantities.Add(Clone(tz));
+                                        else exTz.Quantities = tz.Quantities?.Select(q => Clone(q)).ToList() ?? new List<Quantity>();
                                     }
                                 }
                             }
@@ -113,7 +113,7 @@ namespace Estimator.Api.Services
                     }
 
                     // Update the condition's project summary from callback (Takeoff has already computed it)
-                    existing.ProjectSummary = changed.ProjectSummary?.Select(q => Clone(q)).ToList() ?? new List<Quantity>();
+                    existing.Quantities = changed.Quantities?.Select(q => Clone(q)).ToList() ?? new List<Quantity>();
 
                     result.Add(Clone(existing));
                 }
@@ -127,7 +127,7 @@ namespace Estimator.Api.Services
             lock (_gate)
             {
                 if (!_data.TryGetValue(projectId, out var list)) return false;
-                var idx = list.FindIndex(x => x.Id == conditionId);
+                var idx = list.FindIndex(x => x.ConditionId == conditionId);
                 if (idx < 0) return false;
                 list.RemoveAt(idx);
                 return true;
@@ -142,12 +142,12 @@ namespace Estimator.Api.Services
                 bool deleted = false;
                 foreach (var cond in conditions)
                 {
-                    if (cond.Documents != null)
+                    if (cond.DocumentConditionQuantities != null)
                     {
-                        var idx = cond.Documents.FindIndex(d => d.Id == documentId);
+                        var idx = cond.DocumentConditionQuantities.FindIndex(d => d.DocumentId == documentId);
                         if (idx >= 0)
                         {
-                            cond.Documents.RemoveAt(idx);
+                            cond.DocumentConditionQuantities.RemoveAt(idx);
                             deleted = true;
                         }
                     }
@@ -164,14 +164,14 @@ namespace Estimator.Api.Services
                 bool deleted = false;
                 foreach (var cond in conditions)
                 {
-                    foreach (var doc in cond.Documents ?? new List<Document>())
+                    foreach (var doc in cond.DocumentConditionQuantities ?? new List<DocumentConditionQuantities>())
                     {
-                        if (doc.Pages != null)
+                        if (doc.PageConditionQuantities != null)
                         {
-                            var idx = doc.Pages.FindIndex(p => p.Id == pageId);
+                            var idx = doc.PageConditionQuantities.FindIndex(p => p.PageId == pageId);
                             if (idx >= 0)
                             {
-                                doc.Pages.RemoveAt(idx);
+                                doc.PageConditionQuantities.RemoveAt(idx);
                                 deleted = true;
                             }
                         }
@@ -189,16 +189,16 @@ namespace Estimator.Api.Services
                 bool deleted = false;
                 foreach (var cond in conditions)
                 {
-                    foreach (var doc in cond.Documents ?? new List<Document>())
+                    foreach (var doc in cond.DocumentConditionQuantities ?? new List<DocumentConditionQuantities>())
                     {
-                        foreach (var page in doc.Pages ?? new List<Page>())
+                        foreach (var page in doc.PageConditionQuantities ?? new List<PageConditionQuantities>())
                         {
-                            if (page.TakeoffZones != null)
+                            if (page.TakeoffZoneConditionQuantities != null)
                             {
-                                var idx = page.TakeoffZones.FindIndex(z => z.Id == zoneId);
+                                var idx = page.TakeoffZoneConditionQuantities.FindIndex(z => z.TakeoffZoneId == zoneId);
                                 if (idx >= 0)
                                 {
-                                    page.TakeoffZones.RemoveAt(idx);
+                                    page.TakeoffZoneConditionQuantities.RemoveAt(idx);
                                     deleted = true;
                                 }
                             }
@@ -225,6 +225,14 @@ namespace Estimator.Api.Services
             return DeleteTakeoffZone(projectId, zoneId);
         }
 
+        public bool DeleteProject(Guid projectId)
+        {
+            lock (_gate)
+            {
+                return _data.Remove(projectId);
+            }
+        }
+
         public List<Guid> GetProjectIds()
         {
             lock (_gate)
@@ -233,50 +241,50 @@ namespace Estimator.Api.Services
             }
         }
 
-        private Condition? GetInternal(Guid projectId, Guid conditionId)
+        private ProjectConditionQuantities? GetInternal(Guid projectId, Guid conditionId)
         {
             if (!_data.TryGetValue(projectId, out var list)) return null;
-            return list.FirstOrDefault(x => x.Id == conditionId);
+            return list.FirstOrDefault(x => x.ConditionId == conditionId);
         }
 
-        private static Condition Clone(Condition src)
+        private static ProjectConditionQuantities Clone(ProjectConditionQuantities src)
         {
-            return new Condition
+            return new ProjectConditionQuantities
             {
-                Id = src.Id,
+                ConditionId = src.ConditionId,
                 ProjectId = src.ProjectId,
-                ProjectSummary = src.ProjectSummary?.Select(q => Clone(q)).ToList() ?? new List<Quantity>(),
-                Documents = src.Documents?.Select(d => Clone(d)).ToList() ?? new List<Document>()
+                Quantities = src.Quantities?.Select(q => Clone(q)).ToList() ?? new List<Quantity>(),
+                DocumentConditionQuantities = src.DocumentConditionQuantities?.Select(d => Clone(d)).ToList() ?? new List<DocumentConditionQuantities>()
             };
         }
 
-        private static Document Clone(Document src)
+        private static DocumentConditionQuantities Clone(DocumentConditionQuantities src)
         {
-            return new Document
+            return new DocumentConditionQuantities
             {
-                Id = src.Id,
-                DocumentSummary = src.DocumentSummary?.Select(q => Clone(q)).ToList() ?? new List<Quantity>(),
-                Pages = src.Pages?.Select(p => Clone(p)).ToList() ?? new List<Page>()
+                DocumentId = src.DocumentId,
+                Quantities = src.Quantities?.Select(q => Clone(q)).ToList() ?? new List<Quantity>(),
+                PageConditionQuantities = src.PageConditionQuantities?.Select(p => Clone(p)).ToList() ?? new List<PageConditionQuantities>()
             };
         }
 
-        private static Page Clone(Page src)
+        private static PageConditionQuantities Clone(PageConditionQuantities src)
         {
-            return new Page
+            return new PageConditionQuantities
             {
-                Id = src.Id,
+                PageId = src.PageId,
                 PageNumber = src.PageNumber,
-                PageSummary = src.PageSummary?.Select(q => Clone(q)).ToList() ?? new List<Quantity>(),
-                TakeoffZones = src.TakeoffZones?.Select(tz => Clone(tz)).ToList() ?? new List<TakeoffZone>()
+                Quantities = src.Quantities?.Select(q => Clone(q)).ToList() ?? new List<Quantity>(),
+                TakeoffZoneConditionQuantities = src.TakeoffZoneConditionQuantities?.Select(tz => Clone(tz)).ToList() ?? new List<TakeoffZoneConditionQuantities>()
             };
         }
 
-        private static TakeoffZone Clone(TakeoffZone src)
+        private static TakeoffZoneConditionQuantities Clone(TakeoffZoneConditionQuantities src)
         {
-            return new TakeoffZone
+            return new TakeoffZoneConditionQuantities
             {
-                Id = src.Id,
-                ZoneSummary = src.ZoneSummary?.Select(q => Clone(q)).ToList() ?? new List<Quantity>()
+                TakeoffZoneId = src.TakeoffZoneId,
+                Quantities = src.Quantities?.Select(q => Clone(q)).ToList() ?? new List<Quantity>()
             };
         }
 

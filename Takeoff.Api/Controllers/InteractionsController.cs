@@ -15,14 +15,11 @@ namespace Takeoff.Api.Controllers
             _store = store;
         }
 
-        [HttpGet("projects/{projectId:guid}/conditions")]
-        public ActionResult<List<Condition>> GetAll(Guid projectId)
+        [HttpGet("projects/{projectId:guid}/conditions-all")]
+        public ActionResult<List<ProjectConditionQuantities>> GetAll(Guid projectId)
         {
             var list = _store.GetAll(projectId);
             return Ok(list);
         }
-
-        [HttpGet("health")]
-        public IActionResult Health() => Ok("ok");
     }
 }

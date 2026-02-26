@@ -21,20 +21,27 @@ namespace Estimator.Api.Controllers
         /// Accept a list of changed Conditions from Takeoff. Each Condition object may contain only
         /// changed documents/pages/zones (as a diff) or full data for new conditions.
         /// </summary>
-        [HttpPost("condition-changed")]
-        public ActionResult<List<Condition>> ConditionChanged([FromBody] List<Condition> conditions)
+        [HttpPost("conditions-changed")]
+        public ActionResult<List<ProjectConditionQuantities>> ConditionsChanged([FromBody] List<ProjectConditionQuantities> conditions)
         {
             if (conditions == null || !conditions.Any()) return BadRequest();
             var res = _store.UpsertByCallback(conditions);
             return Ok(res);
         }
 
-        [HttpPost("condition-deleted")]
-        public async Task<IActionResult> ConditionDeleted([FromBody] DeleteRequest req, CancellationToken ct = default)
+        [HttpPost("conditions-deleted")]
+        public async Task<IActionResult> ConditionsDeleted([FromBody] ConditionsDeleteRequest req, CancellationToken ct = default)
         {
-            if (req.ProjectId == Guid.Empty || req.ConditionId == Guid.Empty) return BadRequest();
-            var deleted = _store.Delete(req.ProjectId, req.ConditionId);
-            if (!deleted) return NotFound();
+            if (req.ProjectId == Guid.Empty || req.ConditionIds == null || !req.ConditionIds.Any()) return BadRequest();
+            
+            var allDeleted = true;
+            foreach (var conditionId in req.ConditionIds)
+            {
+                var deleted = _store.Delete(req.ProjectId, conditionId);
+                if (!deleted) allDeleted = false;
+            }
+            
+            if (!allDeleted) return NotFound();
             
             // Pull snapshot for this project to ensure consistency after deletion
             try
@@ -51,12 +58,19 @@ namespace Estimator.Api.Controllers
             return NoContent();
         }
 
-        [HttpPost("document-deleted")]
-        public async Task<IActionResult> DocumentDeleted([FromBody] DocumentDeleteRequest req, CancellationToken ct = default)
+        [HttpPost("documents-deleted")]
+        public async Task<IActionResult> DocumentsDeleted([FromBody] DocumentsDeleteRequest req, CancellationToken ct = default)
         {
-            if (req.ProjectId == Guid.Empty || req.DocumentId == Guid.Empty) return BadRequest();
-            var deleted = _store.DeleteDocument(req.ProjectId, req.DocumentId);
-            if (!deleted) return NotFound();
+            if (req.ProjectId == Guid.Empty || req.DocumentIds == null || !req.DocumentIds.Any()) return BadRequest();
+            
+            var allDeleted = true;
+            foreach (var documentId in req.DocumentIds)
+            {
+                var deleted = _store.DeleteDocument(req.ProjectId, documentId);
+                if (!deleted) allDeleted = false;
+            }
+            
+            if (!allDeleted) return NotFound();
             
             // Pull snapshot for this project to ensure consistency after deletion
             try
@@ -73,12 +87,19 @@ namespace Estimator.Api.Controllers
             return NoContent();
         }
 
-        [HttpPost("page-deleted")]
-        public async Task<IActionResult> PageDeleted([FromBody] PageDeleteRequest req, CancellationToken ct = default)
+        [HttpPost("pages-deleted")]
+        public async Task<IActionResult> PagesDeleted([FromBody] PagesDeleteRequest req, CancellationToken ct = default)
         {
-            if (req.ProjectId == Guid.Empty || req.PageId == Guid.Empty) return BadRequest();
-            var deleted = _store.DeletePage(req.ProjectId, req.PageId);
-            if (!deleted) return NotFound();
+            if (req.ProjectId == Guid.Empty || req.PageIds == null || !req.PageIds.Any()) return BadRequest();
+            
+            var allDeleted = true;
+            foreach (var pageId in req.PageIds)
+            {
+                var deleted = _store.DeletePage(req.ProjectId, pageId);
+                if (!deleted) allDeleted = false;
+            }
+            
+            if (!allDeleted) return NotFound();
             
             // Pull snapshot for this project to ensure consistency after deletion
             try
@@ -95,12 +116,19 @@ namespace Estimator.Api.Controllers
             return NoContent();
         }
 
-        [HttpPost("takeoffzone-deleted")]
-        public async Task<IActionResult> TakeoffZoneDeleted([FromBody] TakeoffZoneDeleteRequest req, CancellationToken ct = default)
+        [HttpPost("takeoffzones-deleted")]
+        public async Task<IActionResult> TakeoffZonesDeleted([FromBody] TakeoffZonesDeleteRequest req, CancellationToken ct = default)
         {
-            if (req.ProjectId == Guid.Empty || req.ZoneId == Guid.Empty) return BadRequest();
-            var deleted = _store.DeleteTakeoffZone(req.ProjectId, req.ZoneId);
-            if (!deleted) return NotFound();
+            if (req.ProjectId == Guid.Empty || req.ZoneIds == null || !req.ZoneIds.Any()) return BadRequest();
+            
+            var allDeleted = true;
+            foreach (var zoneId in req.ZoneIds)
+            {
+                var deleted = _store.DeleteTakeoffZone(req.ProjectId, zoneId);
+                if (!deleted) allDeleted = false;
+            }
+            
+            if (!allDeleted) return NotFound();
             
             // Pull snapshot for this project to ensure consistency after deletion
             try
@@ -114,15 +142,25 @@ namespace Estimator.Api.Controllers
                 System.Diagnostics.Debug.WriteLine($"Failed to pull snapshot after deletion: {ex.Message}");
             }
             
+            return NoContent();
+        }
+
+        [HttpPost("project-deleted")]
+        public IActionResult ProjectDeleted([FromBody] ProjectDeleteRequest req)
+        {
+            if (req.ProjectId == Guid.Empty) return BadRequest();
+            var deleted = _store.DeleteProject(req.ProjectId);
+            if (!deleted) return NotFound();
             return NoContent();
         }
 
         [HttpGet("health")]
         public IActionResult Health() => Ok("ok");
 
-        public class DeleteRequest { public Guid ProjectId { get; set; } public Guid ConditionId { get; set; } }
-        public class DocumentDeleteRequest { public Guid ProjectId { get; set; } public Guid DocumentId { get; set; } }
-        public class PageDeleteRequest { public Guid ProjectId { get; set; } public Guid PageId { get; set; } }
-        public class TakeoffZoneDeleteRequest { public Guid ProjectId { get; set; } public Guid ZoneId { get; set; } }
+        public class ConditionsDeleteRequest { public Guid ProjectId { get; set; } public List<Guid> ConditionIds { get; set; } = new(); }
+        public class DocumentsDeleteRequest { public Guid ProjectId { get; set; } public List<Guid> DocumentIds { get; set; } = new(); }
+        public class PagesDeleteRequest { public Guid ProjectId { get; set; } public List<Guid> PageIds { get; set; } = new(); }
+        public class TakeoffZonesDeleteRequest { public Guid ProjectId { get; set; } public List<Guid> ZoneIds { get; set; } = new(); }
+        public class ProjectDeleteRequest { public Guid ProjectId { get; set; } }
     }
 }

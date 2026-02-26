@@ -92,7 +92,7 @@
             <div class="mb-2"><label class="form-label">Id</label><input id="cId" class="form-control" readonly /></div>
             <div class="mb-2"><label class="form-label">ProjectId</label><input id="cProjectId" class="form-control" readonly /></div>
             <div class="mb-3">
-              <h6>Project Summary (computed)</h6>
+              <h6>Quantities (computed)</h6>
               <table class="table table-sm" id="cProjectSummary"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody></tbody></table>
             </div>
             <div class="d-flex">
@@ -106,7 +106,7 @@
             <h5>Document</h5>
             <div class="mb-2"><label class="form-label">Document Id</label><input id="dId" class="form-control" readonly /></div>
             <div class="mb-3">
-              <h6>Document Summary (computed)</h6>
+              <h6>Quantities (computed)</h6>
               <table class="table table-sm" id="dSummary"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody></tbody></table>
             </div>
             <div class="d-flex">
@@ -121,7 +121,7 @@
             <div class="mb-2"><label class="form-label">Page Id</label><input id="pId" class="form-control" readonly /></div>
             <div class="mb-2"><label class="form-label">Page Number</label><input id="pNumber" type="number" class="form-control" readonly /></div>
             <div class="mb-3">
-              <h6>Page Summary (computed)</h6>
+              <h6>Quantities (computed)</h6>
               <table class="table table-sm" id="pSummary"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody></tbody></table>
             </div>
             <div class="d-flex">
@@ -135,7 +135,7 @@
             <h5>Zone</h5>
             <div class="mb-2"><label class="form-label">Zone Id</label><input id="zId" class="form-control" readonly /></div>
             <div class="mb-3">
-              <h6>Zone Summary (editable)</h6>
+              <h6>Quantities (editable)</h6>
               <table class="table table-sm" id="zSummary"><thead><tr><th>Name</th><th>Unit</th><th>Value</th><th></th></tr></thead><tbody></tbody></table>
               <button id="zAddRow" class="btn btn-sm btn-outline-primary">Add Row</button>
             </div>
@@ -235,40 +235,40 @@
       
       // Scan data and assign numbers to any new IDs (but don't clear existing mappings)
       (data || []).forEach(function(cond) {
-        (cond.documents || []).forEach(function(doc) {
-          getDocumentNumber(doc.id); // Ensure mapping exists
-          (doc.pages || []).forEach(function(pg) {
-            getPageNumber(pg.id); // Ensure mapping exists
-            (pg.takeoffZones || []).forEach(function(z) {
-              getZoneNumber(z.id); // Ensure mapping exists
+        (cond.documentConditionQuantities || []).forEach(function(doc) {
+          getDocumentNumber(doc.documentId); // Ensure mapping exists
+          (doc.pageConditionQuantities || []).forEach(function(pg) {
+            getPageNumber(pg.pageId); // Ensure mapping exists
+            (pg.takeoffZoneConditionQuantities || []).forEach(function(z) {
+              getZoneNumber(z.takeoffZoneId); // Ensure mapping exists
             });
           });
         });
       });
       
       (data || []).forEach(function(cond, condIdx) {
-        var cid = 'cond-' + cond.id;
-        nodes.push({ id: cid, parent: pid, text: 'Condition ' + (condIdx + 1), state: { opened: true },
+        var cid = 'cond-' + cond.conditionId;
+        nodes.push({ id: cid, parent: pid, text: 'Condition ' + (condIdx + 1) + ' quantities', state: { opened: true },
           li_attr: { class: 'condition-node' },
           data: { type: 'condition', condition: cond } });
-        (cond.documents || []).forEach(function(doc) {
-          var docNum = getDocumentNumber(doc.id);
-          var did = cid + '-doc-' + doc.id;
-          nodes.push({ id: did, parent: cid, text: 'Document ' + docNum, state: { opened: true },
+        (cond.documentConditionQuantities || []).forEach(function(doc) {
+          var docNum = getDocumentNumber(doc.documentId);
+          var did = cid + '-doc-' + doc.documentId;
+          nodes.push({ id: did, parent: cid, text: 'Document ' + docNum + ' quantities', state: { opened: true },
             li_attr: { class: 'document-node' },
-            data: { type: 'document', document: doc, conditionId: cond.id } });
-          (doc.pages || []).forEach(function(pg) {
-            var pgNum = getPageNumber(pg.id);
-            var pgid = did + '-page-' + pg.id;
-            nodes.push({ id: pgid, parent: did, text: 'Page ' + pgNum, state: { opened: true },
+            data: { type: 'document', document: doc, conditionId: cond.conditionId } });
+          (doc.pageConditionQuantities || []).forEach(function(pg) {
+            var pgNum = getPageNumber(pg.pageId);
+            var pgid = did + '-page-' + pg.pageId;
+            nodes.push({ id: pgid, parent: did, text: 'Page ' + pgNum + ' quantities', state: { opened: true },
               li_attr: { class: 'page-node' },
-              data: { type: 'page', page: pg, documentId: doc.id, conditionId: cond.id } });
-            (pg.takeoffZones || []).forEach(function(z) {
-              var zNum = getZoneNumber(z.id);
-              var zid = pgid + '-zone-' + z.id;
-              nodes.push({ id: zid, parent: pgid, text: 'Zone ' + zNum,
+              data: { type: 'page', page: pg, documentId: doc.documentId, conditionId: cond.conditionId } });
+            (pg.takeoffZoneConditionQuantities || []).forEach(function(z) {
+              var zNum = getZoneNumber(z.takeoffZoneId);
+              var zid = pgid + '-zone-' + z.takeoffZoneId;
+              nodes.push({ id: zid, parent: pgid, text: 'Zone ' + zNum + ' quantities',
                 li_attr: { class: 'zone-node' },
-                data: { type: 'zone', zone: z, pageId: pg.id, documentId: doc.id, conditionId: cond.id } });
+                data: { type: 'zone', zone: z, pageId: pg.pageId, documentId: doc.documentId, conditionId: cond.conditionId } });
             });
           });
         });
@@ -313,7 +313,7 @@
 
     function putCondition(cond) {
       // Server will compute all summaries when data is saved
-      return api({ url: '/api/demo/conditions/' + cond.id, type: 'PUT', contentType: 'application/json', data: JSON.stringify(cond) });
+      return api({ url: '/api/demo/conditions/' + cond.conditionId, type: 'PUT', contentType: 'application/json', data: JSON.stringify(cond) });
     }
 
     function selectTreeNode(nodeId) {
@@ -359,38 +359,38 @@
       $('#takeoffTree').on('select_node.jstree', function(e, data) {
         var nd = data.node.data || {};
         if (nd.type === 'condition') {
-          sel = { conditionId: nd.condition.id, documentId: null, pageId: null, zoneId: null };
-          $('#cId').val(nd.condition.id);
+          sel = { conditionId: nd.condition.conditionId, documentId: null, pageId: null, zoneId: null };
+          $('#cId').val(nd.condition.conditionId);
           $('#cProjectId').val(nd.condition.projectId);
           var $tb = $('#cProjectSummary tbody').empty();
-          (nd.condition.projectSummary || []).forEach(function(q) { $tb.append(qDisplayRow(q)); });
+          (nd.condition.quantities || []).forEach(function(q) { $tb.append(qDisplayRow(q)); });
           showConditionForm();
         } else if (nd.type === 'document') {
           sel.conditionId = nd.conditionId;
-          sel.documentId = nd.document.id;
+          sel.documentId = nd.document.documentId;
           sel.pageId = sel.zoneId = null;
-          $('#dId').val(nd.document.id);
+          $('#dId').val(nd.document.documentId);
           var $dt = $('#dSummary tbody').empty();
-          (nd.document.documentSummary || []).forEach(function(q) { $dt.append(qDisplayRow(q)); });
+          (nd.document.quantities || []).forEach(function(q) { $dt.append(qDisplayRow(q)); });
           showDocumentForm();
         } else if (nd.type === 'page') {
           sel.conditionId = nd.conditionId;
           sel.documentId = nd.documentId;
-          sel.pageId = nd.page.id;
+          sel.pageId = nd.page.pageId;
           sel.zoneId = null;
-          $('#pId').val(nd.page.id);
+          $('#pId').val(nd.page.pageId);
           $('#pNumber').val(nd.page.pageNumber);
           var $pt = $('#pSummary tbody').empty();
-          (nd.page.pageSummary || []).forEach(function(q) { $pt.append(qDisplayRow(q)); });
+          (nd.page.quantities || []).forEach(function(q) { $pt.append(qDisplayRow(q)); });
           showPageForm();
         } else if (nd.type === 'zone') {
           sel.conditionId = nd.conditionId;
           sel.documentId = nd.documentId;
           sel.pageId = nd.pageId;
-          sel.zoneId = nd.zone.id;
-          $('#zId').val(nd.zone.id);
+          sel.zoneId = nd.zone.takeoffZoneId;
+          $('#zId').val(nd.zone.takeoffZoneId);
           var $zt = $('#zSummary tbody').empty();
-          (nd.zone.zoneSummary || []).forEach(function(q) { $zt.append(qInputRow(q)); });
+          (nd.zone.quantities || []).forEach(function(q) { $zt.append(qInputRow(q)); });
           showZoneForm();
         } else {
           sel = { conditionId: null, documentId: null, pageId: null, zoneId: null };
@@ -404,7 +404,7 @@
         var projectId = $('#projectSelect').val();
 
         function doCreate(projId) {
-          var payload = { projectId: projId, projectSummary: [], documents: [] };
+          var payload = { projectId: projId, quantities: [], documentConditionQuantities: [] };
           api({ url: '/api/demo/conditions', type: 'POST', contentType: 'application/json', data: JSON.stringify(payload) })
             .done(function(created) {
               setStatus('condition created');
@@ -412,7 +412,7 @@
                 $('#projectSelect').val(projId);
               }
               loadProject(projId).done(function() {
-                selectTreeNode('cond-' + created.id);
+                selectTreeNode('cond-' + created.conditionId);
               });
             })
             .fail(function() { alert('Failed to create condition'); setStatus('ready'); });
@@ -448,8 +448,8 @@
         if (!condId || !currentProjectId) return alert('No condition selected');
         api({ url: '/api/demo/guids', type: 'POST' }).done(function(docGuid) {
           fetchCondition(condId).done(function(cond) {
-            cond.documents = cond.documents || [];
-            cond.documents.push({ id: docGuid, documentSummary: [], pages: [] });
+            cond.documentConditionQuantities = cond.documentConditionQuantities || [];
+            cond.documentConditionQuantities.push({ documentId: docGuid, quantities: [], pageConditionQuantities: [] });
             // Assign number to new document immediately
             var docNum = getDocumentNumber(docGuid);
             putCondition(cond).done(function() {
@@ -479,10 +479,10 @@
         if (!sel.conditionId || !sel.documentId) return alert('No document selected');
         api({ url: '/api/demo/guids', type: 'POST' }).done(function(pageGuid) {
           fetchCondition(sel.conditionId).done(function(cond) {
-            var doc = (cond.documents || []).find(function(d) { return d.id === sel.documentId; });
+            var doc = (cond.documentConditionQuantities || []).find(function(d) { return d.documentId === sel.documentId; });
             if (!doc) return alert('Document not found');
-            doc.pages = doc.pages || [];
-            doc.pages.push({ id: pageGuid, pageNumber: doc.pages.length + 1, pageSummary: [], takeoffZones: [] });
+            doc.pageConditionQuantities = doc.pageConditionQuantities || [];
+            doc.pageConditionQuantities.push({ pageId: pageGuid, pageNumber: doc.pageConditionQuantities.length + 1, quantities: [], takeoffZoneConditionQuantities: [] });
             // Assign number to new page immediately
             var pgNum = getPageNumber(pageGuid);
             putCondition(cond).done(function() {
@@ -512,12 +512,12 @@
         if (!sel.conditionId || !sel.documentId || !sel.pageId) return alert('No page selected');
         api({ url: '/api/demo/guids', type: 'POST' }).done(function(zoneGuid) {
           fetchCondition(sel.conditionId).done(function(cond) {
-            var doc = (cond.documents || []).find(function(d) { return d.id === sel.documentId; });
+            var doc = (cond.documentConditionQuantities || []).find(function(d) { return d.documentId === sel.documentId; });
             if (!doc) return alert('Document not found');
-            var page = (doc.pages || []).find(function(p) { return p.id === sel.pageId; });
+            var page = (doc.pageConditionQuantities || []).find(function(p) { return p.pageId === sel.pageId; });
             if (!page) return alert('Page not found');
-            page.takeoffZones = page.takeoffZones || [];
-            page.takeoffZones.push({ id: zoneGuid, zoneSummary: [] });
+            page.takeoffZoneConditionQuantities = page.takeoffZoneConditionQuantities || [];
+            page.takeoffZoneConditionQuantities.push({ takeoffZoneId: zoneGuid, quantities: [] });
             // Assign number to new zone immediately
             var zNum = getZoneNumber(zoneGuid);
             putCondition(cond).done(function() {
@@ -550,13 +550,13 @@
           if (name) items.push({ name: name, unit: unit, value: value });
         });
         fetchCondition(sel.conditionId).done(function(cond) {
-          var doc = (cond.documents || []).find(function(d) { return d.id === sel.documentId; });
+          var doc = (cond.documentConditionQuantities || []).find(function(d) { return d.documentId === sel.documentId; });
           if (!doc) return alert('Document not found');
-          var page = (doc.pages || []).find(function(p) { return p.id === sel.pageId; });
+          var page = (doc.pageConditionQuantities || []).find(function(p) { return p.pageId === sel.pageId; });
           if (!page) return alert('Page not found');
-          var zone = (page.takeoffZones || []).find(function(z) { return z.id === sel.zoneId; });
+          var zone = (page.takeoffZoneConditionQuantities || []).find(function(z) { return z.takeoffZoneId === sel.zoneId; });
           if (!zone) return alert('Zone not found');
-          zone.zoneSummary = items;
+          zone.quantities = items;
           // putCondition will auto-compute all summaries before saving
           putCondition(cond).done(function() {
             setStatus('zone saved, summaries updated');

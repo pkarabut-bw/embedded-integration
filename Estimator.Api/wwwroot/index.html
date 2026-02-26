@@ -136,10 +136,10 @@
     function showConditionInfo(cond) {
       var html = '<div class="card"><div class="card-body">' +
         '<h5>Condition</h5>' +
-        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + cond.id + '" readonly /></div>' +
+        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + cond.conditionId + '" readonly /></div>' +
         '<div class="mb-2"><label class="form-label">ProjectId</label><input class="form-control" value="' + cond.projectId + '" readonly /></div>' +
-        '<div class="mb-3"><h6>Project Summary</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
-      (cond.projectSummary || []).forEach(function(q) {
+        '<div class="mb-3"><h6>Quantities</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
+      (cond.quantities || []).forEach(function(q) {
         html += '<tr><td>' + (q.name || '') + '</td><td>' + (q.unit || '') + '</td><td>' + (q.value || 0) + '</td></tr>';
       });
       html += '</tbody></table></div></div></div>';
@@ -147,14 +147,14 @@
     }
 
     function showDocumentInfo(docId, cond) {
-      var doc = (cond.documents || []).find(function(d) { return d.id === docId; });
+      var doc = (cond.documentConditionQuantities || []).find(function(d) { return d.documentId === docId; });
       if (!doc) return;
       var docNum = getDocumentNumber(docId);
       var html = '<div class="card"><div class="card-body">' +
         '<h5>Document ' + docNum + '</h5>' +
-        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + doc.id + '" readonly /></div>' +
-        '<div class="mb-3"><h6>Document Summary</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
-      (doc.documentSummary || []).forEach(function(q) {
+        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + doc.documentId + '" readonly /></div>' +
+        '<div class="mb-3"><h6>Quantities</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
+      (doc.quantities || []).forEach(function(q) {
         html += '<tr><td>' + (q.name || '') + '</td><td>' + (q.unit || '') + '</td><td>' + (q.value || 0) + '</td></tr>';
       });
       html += '</tbody></table></div></div></div>';
@@ -163,18 +163,18 @@
 
     function showPageInfo(pageId, cond) {
       var page = null;
-      (cond.documents || []).forEach(function(doc) {
-        var p = (doc.pages || []).find(function(x) { return x.id === pageId; });
+      (cond.documentConditionQuantities || []).forEach(function(doc) {
+        var p = (doc.pageConditionQuantities || []).find(function(x) { return x.pageId === pageId; });
         if (p) page = p;
       });
       if (!page) return;
       var pgNum = getPageNumber(pageId);
       var html = '<div class="card"><div class="card-body">' +
         '<h5>Page ' + pgNum + '</h5>' +
-        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + page.id + '" readonly /></div>' +
+        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + page.pageId + '" readonly /></div>' +
         '<div class="mb-2"><label class="form-label">Page Number</label><input type="number" class="form-control" value="' + page.pageNumber + '" readonly /></div>' +
-        '<div class="mb-3"><h6>Page Summary</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
-      (page.pageSummary || []).forEach(function(q) {
+        '<div class="mb-3"><h6>Quantities</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
+      (page.quantities || []).forEach(function(q) {
         html += '<tr><td>' + (q.name || '') + '</td><td>' + (q.unit || '') + '</td><td>' + (q.value || 0) + '</td></tr>';
       });
       html += '</tbody></table></div></div></div>';
@@ -183,9 +183,9 @@
 
     function showZoneInfo(zoneId, cond) {
       var zone = null;
-      (cond.documents || []).forEach(function(doc) {
-        (doc.pages || []).forEach(function(page) {
-          var z = (page.takeoffZones || []).find(function(x) { return x.id === zoneId; });
+      (cond.documentConditionQuantities || []).forEach(function(doc) {
+        (doc.pageConditionQuantities || []).forEach(function(page) {
+          var z = (page.takeoffZoneConditionQuantities || []).find(function(x) { return x.takeoffZoneId === zoneId; });
           if (z) zone = z;
         });
       });
@@ -193,9 +193,9 @@
       var zNum = getZoneNumber(zoneId);
       var html = '<div class="card"><div class="card-body">' +
         '<h5>Zone ' + zNum + '</h5>' +
-        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + zone.id + '" readonly /></div>' +
-        '<div class="mb-3"><h6>Zone Summary</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
-      (zone.zoneSummary || []).forEach(function(q) {
+        '<div class="mb-2"><label class="form-label">Id</label><input class="form-control" value="' + zone.takeoffZoneId + '" readonly /></div>' +
+        '<div class="mb-3"><h6>Quantities</h6><table class="table table-sm"><thead><tr><th>Name</th><th>Unit</th><th>Value</th></tr></thead><tbody>';
+      (zone.quantities || []).forEach(function(q) {
         html += '<tr><td>' + (q.name || '') + '</td><td>' + (q.unit || '') + '</td><td>' + (q.value || 0) + '</td></tr>';
       });
       html += '</tbody></table></div></div></div>';
@@ -208,12 +208,12 @@
       
       // Scan data and assign numbers to any new IDs
       (data || []).forEach(function(cond) {
-        (cond.documents || []).forEach(function(doc) {
-          getDocumentNumber(doc.id);
-          (doc.pages || []).forEach(function(pg) {
-            getPageNumber(pg.id);
-            (pg.takeoffZones || []).forEach(function(z) {
-              getZoneNumber(z.id);
+        (cond.documentConditionQuantities || []).forEach(function(doc) {
+          getDocumentNumber(doc.documentId);
+          (doc.pageConditionQuantities || []).forEach(function(pg) {
+            getPageNumber(pg.pageId);
+            (pg.takeoffZoneConditionQuantities || []).forEach(function(z) {
+              getZoneNumber(z.takeoffZoneId);
             });
           });
         });
@@ -240,31 +240,31 @@
         
         var conditions = projectMap[projectId];
         conditions.forEach(function(cond, condIdx) {
-          var cid = projectNode + '-cond-' + cond.id;
-          nodes.push({ id: cid, parent: projectNode, text: 'Condition ' + (condIdx + 1), state: { opened: true },
+          var cid = projectNode + '-cond-' + cond.conditionId;
+          nodes.push({ id: cid, parent: projectNode, text: 'Condition ' + (condIdx + 1) + ' quantities', state: { opened: true },
             li_attr: { class: 'condition-node' },
-            data: { type: 'condition', conditionId: cond.id, projectId: cond.projectId } });
+            data: { type: 'condition', conditionId: cond.conditionId, projectId: cond.projectId } });
           
-          (cond.documents || []).forEach(function(doc) {
-            var docNum = getDocumentNumber(doc.id);
-            var did = cid + '-doc-' + doc.id;
-            nodes.push({ id: did, parent: cid, text: 'Document ' + docNum, state: { opened: true },
+          (cond.documentConditionQuantities || []).forEach(function(doc) {
+            var docNum = getDocumentNumber(doc.documentId);
+            var did = cid + '-doc-' + doc.documentId;
+            nodes.push({ id: did, parent: cid, text: 'Document ' + docNum + ' quantities', state: { opened: true },
               li_attr: { class: 'document-node' },
-              data: { type: 'document', documentId: doc.id, conditionId: cond.id, projectId: cond.projectId } });
+              data: { type: 'document', documentId: doc.documentId, conditionId: cond.conditionId, projectId: cond.projectId } });
             
-            (doc.pages || []).forEach(function(pg) {
-              var pgNum = getPageNumber(pg.id);
-              var pgid = did + '-page-' + pg.id;
-              nodes.push({ id: pgid, parent: did, text: 'Page ' + pgNum, state: { opened: true },
+            (doc.pageConditionQuantities || []).forEach(function(pg) {
+              var pgNum = getPageNumber(pg.pageId);
+              var pgid = did + '-page-' + pg.pageId;
+              nodes.push({ id: pgid, parent: did, text: 'Page ' + pgNum + ' quantities', state: { opened: true },
                 li_attr: { class: 'page-node' },
-                data: { type: 'page', pageId: pg.id, documentId: doc.id, conditionId: cond.id, projectId: cond.projectId } });
+                data: { type: 'page', pageId: pg.pageId, documentId: doc.documentId, conditionId: cond.conditionId, projectId: cond.projectId } });
               
-              (pg.takeoffZones || []).forEach(function(z) {
-                var zNum = getZoneNumber(z.id);
-                var zid = pgid + '-zone-' + z.id;
-                nodes.push({ id: zid, parent: pgid, text: 'Zone ' + zNum,
+              (pg.takeoffZoneConditionQuantities || []).forEach(function(z) {
+                var zNum = getZoneNumber(z.takeoffZoneId);
+                var zid = pgid + '-zone-' + z.takeoffZoneId;
+                nodes.push({ id: zid, parent: pgid, text: 'Zone ' + zNum + ' quantities',
                   li_attr: { class: 'zone-node' },
-                  data: { type: 'zone', zoneId: z.id, pageId: pg.id, documentId: doc.id, conditionId: cond.id, projectId: cond.projectId } });
+                  data: { type: 'zone', zoneId: z.takeoffZoneId, pageId: pg.pageId, documentId: doc.documentId, conditionId: cond.conditionId, projectId: cond.projectId } });
               });
             });
           });
@@ -280,16 +280,16 @@
           .on('select_node.jstree', function(e, data) {
             var nodeData = data.node.data || {};
             if (nodeData.type === 'condition') {
-              var cond = allConditionsData.find(function(c) { return c.id === nodeData.conditionId; });
+              var cond = allConditionsData.find(function(c) { return c.conditionId === nodeData.conditionId; });
               if (cond) showConditionInfo(cond);
             } else if (nodeData.type === 'document') {
-              var cond = allConditionsData.find(function(c) { return c.id === nodeData.conditionId; });
+              var cond = allConditionsData.find(function(c) { return c.conditionId === nodeData.conditionId; });
               if (cond) showDocumentInfo(nodeData.documentId, cond);
             } else if (nodeData.type === 'page') {
-              var cond = allConditionsData.find(function(c) { return c.id === nodeData.conditionId; });
+              var cond = allConditionsData.find(function(c) { return c.conditionId === nodeData.conditionId; });
               if (cond) showPageInfo(nodeData.pageId, cond);
             } else if (nodeData.type === 'zone') {
-              var cond = allConditionsData.find(function(c) { return c.id === nodeData.conditionId; });
+              var cond = allConditionsData.find(function(c) { return c.conditionId === nodeData.conditionId; });
               if (cond) showZoneInfo(nodeData.zoneId, cond);
             } else {
               $('#infoPanelContent').html('<div class="text-muted text-center mt-5">Select a node to view details</div>');
