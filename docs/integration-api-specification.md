@@ -28,55 +28,55 @@ All data exchanged between the services uses the following contract types, defin
 | `unit`   | `string` | Unit of measurement                  |
 | `value`  | `double` | Numeric value                        |
 
-### 2.2 ProjectConditionQuantities (Condition)
+### 2.2 ProjectConditionQuantities
 
 | Property                      | Type                                    | Description                                |
 |-------------------------------|-----------------------------------------|--------------------------------------------|
 | `conditionId`                 | `Guid`                                  | Unique condition identifier                |
 | `projectId`                   | `Guid`                                  | Project this condition belongs to          |
-| `quantities` (ProjectSummary) | `List<Quantity>`                        | Aggregated from documents                  |
+| `quantities`                  | `List<Quantity>`                        | Aggregated from documents (computed by Takeoff) |
 | `documentConditionQuantities` | `List<DocumentConditionQuantities>`     | Documents within the condition             |
 
-### 2.3 DocumentConditionQuantities (Document)
+### 2.3 DocumentConditionQuantities
 
 | Property                      | Type                                | Description                         |
 |-------------------------------|-------------------------------------|-------------------------------------|
 | `documentId`                  | `Guid`                              | Unique document identifier          |
-| `quantities` (DocumentSummary)| `List<Quantity>`                    | Aggregated from pages               |
+| `quantities`                  | `List<Quantity>`                    | Aggregated from pages (computed by Takeoff) |
 | `pageConditionQuantities`     | `List<PageConditionQuantities>`     | Pages within the document           |
 
-### 2.4 PageConditionQuantities (Page)
+### 2.4 PageConditionQuantities
 
 | Property                         | Type                                        | Description                       |
 |----------------------------------|--------------------------------------------|-----------------------------------|
 | `pageId`                         | `Guid`                                      | Unique page identifier            |
 | `pageNumber`                     | `int`                                       | Page number within the document   |
-| `quantities` (PageSummary)       | `List<Quantity>`                            | Aggregated from zones             |
+| `quantities`                     | `List<Quantity>`                            | Aggregated from zones (computed by Takeoff) |
 | `takeoffZoneConditionQuantities` | `List<TakeoffZoneConditionQuantities>`      | Zones on this page                |
 
-### 2.5 TakeoffZoneConditionQuantities (Zone)
+### 2.5 TakeoffZoneConditionQuantities
 
-| Property      | Type             | Description                    |
-|---------------|------------------|--------------------------------|
-| `takeoffZoneId` | `Guid`         | Unique zone identifier         |
-| `quantities`  | `List<Quantity>` | Raw quantities for this zone   |
+| Property         | Type             | Description                    |
+|------------------|------------------|--------------------------------|
+| `takeoffZoneId`  | `Guid`           | Unique zone identifier         |
+| `quantities`     | `List<Quantity>` | Raw quantities for this zone   |
 
 ### 2.6 Data Hierarchy
 
 ```
-ProjectConditionQuantities (Condition)
-├── Quantities (ProjectSummary - computed by Takeoff)
+ProjectConditionQuantities
+├── Quantities (computed by Takeoff)
 └── DocumentConditionQuantities[]
-    ├── Quantities (DocumentSummary - computed by Takeoff)
+    ├── Quantities (computed by Takeoff)
     └── PageConditionQuantities[]
-        ├── Quantities (PageSummary - computed by Takeoff)
+        ├── Quantities (computed by Takeoff)
         └── TakeoffZoneConditionQuantities[]
-            └── Quantities (ZoneSummary - raw data)
+            └── Quantities (raw data)
 ```
 
 ---
 
-## 3. Takeoff → Estimator Callbacks (Push)
+## 3. Integration Endpoints
 
 ### 3.1 Conditions Changed
 
@@ -85,14 +85,10 @@ ProjectConditionQuantities (Condition)
 - **Request Body**: `List<ProjectConditionQuantities>`
 - **Response**: `200 OK` with `List<ProjectConditionQuantities>`
 
-**Takeoff**:
-- Sends full condition on create.
-- Sends diff on update (only changed branches).
-
-**Estimator**:
-- Inserts new condition if absent.
-- Merges documents, pages, zones by ID if condition exists.
-- **Always overwrites ProjectSummary** from callback.
+**Behavior**:
+- Takeoff sends full condition on create, or diff on update (only changed branches).
+- Estimator inserts new condition if absent, or merges by ID if exists.
+- Estimator always overwrites its local quantities with values from callback.
 
 ---
 
@@ -103,10 +99,10 @@ ProjectConditionQuantities (Condition)
 - **Request Body**: `{ "projectId": Guid, "conditionIds": List<Guid> }`
 - **Response**: `204 No Content`
 
-**Estimator**:
-1. Delete all conditions locally.
-2. **Pull fresh project snapshot** from Takeoff.
-3. Return success.
+**Behavior**:
+1. Estimator deletes all conditions locally.
+2. Estimator pulls fresh project snapshot from Takeoff.
+3. Estimator replaces all local data for that project.
 
 ---
 
@@ -117,10 +113,9 @@ ProjectConditionQuantities (Condition)
 - **Request Body**: `{ "projectId": Guid, "documentIds": List<Guid> }`
 - **Response**: `204 No Content`
 
-**Estimator**:
-1. Delete all documents locally.
-2. **Pull fresh project snapshot** from Takeoff to reconcile recalculated summaries.
-3. Return success.
+**Behavior**:
+1. Estimator deletes all documents locally.
+2. Estimator pulls fresh project snapshot from Takeoff.
 
 ---
 
@@ -131,10 +126,9 @@ ProjectConditionQuantities (Condition)
 - **Request Body**: `{ "projectId": Guid, "pageIds": List<Guid> }`
 - **Response**: `204 No Content`
 
-**Estimator**:
-1. Delete all pages locally.
-2. **Pull fresh project snapshot** from Takeoff.
-3. Return success.
+**Behavior**:
+1. Estimator deletes all pages locally.
+2. Estimator pulls fresh project snapshot from Takeoff.
 
 ---
 
@@ -145,10 +139,9 @@ ProjectConditionQuantities (Condition)
 - **Request Body**: `{ "projectId": Guid, "zoneIds": List<Guid> }`
 - **Response**: `204 No Content`
 
-**Estimator**:
-1. Delete all zones locally.
-2. **Pull fresh project snapshot** from Takeoff.
-3. Return success.
+**Behavior**:
+1. Estimator deletes all zones locally.
+2. Estimator pulls fresh project snapshot from Takeoff.
 
 ---
 
@@ -159,29 +152,13 @@ ProjectConditionQuantities (Condition)
 - **Request Body**: `{ "projectId": Guid }`
 - **Response**: `204 No Content`
 
-**Estimator**:
-- Delete the entire project locally.
-- **No snapshot pull** (entire project is removed).
+**Behavior**:
+- Estimator deletes the entire project locally.
+- No snapshot pull (entire project is removed).
 
 ---
 
-### 3.7 Deletion Pattern: Automatic Snapshot Pull
-
-**After any deletion (except project deletion), Estimator**:
-
-1. Deletes the entity/entities locally
-2. **Immediately pulls the full project snapshot** from Takeoff
-3. Replaces all local data for that project with the fresh snapshot
-
-**Why**: Ensures parent summaries (Document, Page, Project) are recalculated correctly by Takeoff and match exactly.
-
----
-
-## 4. Estimator → Takeoff (Pull)
-
-Estimator can query Takeoff's API to retrieve condition data.
-
-### 4.1 Get Conditions for a Project (Single Project Snapshot)
+### 3.7 Get Conditions for a Project
 
 - **Method**: GET
 - **Path**: `/api/interactions/projects/{projectId}/conditions-all`
@@ -189,38 +166,23 @@ Estimator can query Takeoff's API to retrieve condition data.
 
 Returns all conditions for the given project, with summaries already computed by Takeoff.
 
-**Used by**:
-- Estimator after handling deletion callbacks to pull fresh project snapshot.
-- Initial snapshot pull when needed.
+---
+
+## 4. Post-Deletion Synchronization
+
+After any deletion (except project deletion), Estimator automatically pulls a fresh project snapshot from Takeoff using the **Get Conditions for a Project** endpoint. This ensures:
+
+- Parent summaries are recalculated correctly by Takeoff
+- Local data remains consistent with authoritative state
+- No manual synchronization required
 
 ---
 
-## 5. Health Check
+## 5. Communication Protocol
 
-Both services expose a health endpoint.
-
-- **Method**: GET
-- **Path**: `/api/interactions/health`
-- **Response**: `200 OK` with `"ok"`
-
----
-
-## 6. Configuration
-
-Each service requires the base URL of the other service (configured under `PeerServices`).
-
-**Takeoff configuration keys**:
-- `EstimatorBaseUrl` (string): Base URL of Estimator service
-- `HttpTimeoutSeconds` (int): HTTP client timeout in seconds (default 10)
-
-**Estimator configuration keys**:
-- `TakeoffBaseUrl` (string): Base URL of Takeoff service
-- `HttpTimeoutSeconds` (int): HTTP client timeout in seconds (default 10)
-
----
-
-## 7. Error Handling
-
-- **Takeoff callbacks are fire-and-forget**: If Estimator is unreachable, Takeoff logs a warning and continues.
-- **Estimator's post-deletion snapshot pull is best-effort**: If Takeoff is unreachable during the pull, Estimator logs the error but still returns the deletion response successfully.
-- All HTTP client errors are logged with structured logging (`ILogger`).
+- **Transport**: HTTP/HTTPS
+- **Serialization**: JSON with camelCase property naming
+- **Error Handling**: 
+  - Callbacks are fire-and-forget (Takeoff logs warnings if Estimator unreachable)
+  - Snapshot pulls are best-effort (Estimator logs errors but continues)
+  - All errors logged with structured logging

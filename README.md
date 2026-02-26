@@ -111,20 +111,25 @@ EmbeddedIntegration/
 
 ## Data Model
 
-Conditions contain a hierarchy of documents, pages, and zones with aggregated quantity summaries at each level:
+The data model is a hierarchy of contracts with computed quantity summaries at each level:
 
 ```
-Condition
-├── ProjectSummary (computed: sum of all documents)
-├── Document
-│   ├── DocumentSummary (computed: sum of all pages)
-│   ├── Page
-│   │   ├── PageSummary (computed: sum of all zones)
-│   │   └── Zone
-│   │       └── Quantities (raw data)
+ProjectConditionQuantities
+├── Quantities (computed by Takeoff)
+└── DocumentConditionQuantities[]
+    ├── Quantities (computed by Takeoff)
+    └── PageConditionQuantities[]
+        ├── Quantities (computed by Takeoff)
+        └── TakeoffZoneConditionQuantities[]
+            └── Quantities (raw data from zones)
 ```
 
-All summaries are computed by Takeoff and trusted by Estimator.
+**Summary computation** (Takeoff only):
+- **Page summaries** = aggregated zone quantities
+- **Document summaries** = aggregated page summaries
+- **Project summaries** = aggregated document summaries
+
+All summaries are computed by Takeoff and **never** recomputed by Estimator. Estimator trusts summaries exactly as provided by Takeoff.
 
 ---
 
