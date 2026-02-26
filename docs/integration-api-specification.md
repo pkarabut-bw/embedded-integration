@@ -2,14 +2,17 @@
 
 ## 1. Overview
 
-This document specifies the integration contracts and interaction protocols between the **Takeoff** service and the **Estimator** service. These two services communicate over HTTP using JSON payloads. Takeoff is the authoritative source for condition data and quantity summaries. Estimator is a consumer that receives data from Takeoff and displays it.
+This document specifies the integration contracts and interaction protocols between the **Takeoff** service and the **Estimator** service. These two services communicate over HTTP using JSON payloads. Takeoff is the authoritative source for condition data and quantity summaries. Estimator is a consumer that receives data from Takeoff and maintains a local copy.
 
 ### Key Principles
 
-- Takeoff is the single source of truth for all condition data and computed summaries.
-- Estimator does not compute summaries. It receives and stores them exactly as provided by Takeoff.
-- Communication is bidirectional: Takeoff pushes change/deletion callbacks to Estimator; Estimator can pull snapshots from Takeoff.
+- **Takeoff** is the single source of truth for all condition data and computed summaries.
+- **Estimator** does not compute summaries. It receives and stores them exactly as provided by Takeoff.
+- Communication is **bidirectional**: 
+  - Takeoff **pushes** change/deletion callbacks to Estimator (fire-and-forget)
+  - Estimator **pulls** snapshots from Takeoff on demand or after deletions
 - All endpoints use `application/json` with camelCase property naming.
+- **KEY CHANGE**: Deletion callbacks now trigger **automatic snapshot pulls** to Estimator to ensure consistency.
 
 ---
 
@@ -25,173 +28,250 @@ All data exchanged between the services uses the following contract types, defin
 | `unit`   | `string` | Unit of measurement                  |
 | `value`  | `double` | Numeric value                        |
 
-### 2.2 TakeoffZone
+### 2.2 ProjectConditionQuantities (Condition)
 
-| Property      | Type             | Description                              |
-|---------------|------------------|------------------------------------------|
-| `id`          | `Guid`           | Unique zone identifier                   |
-| `zoneSummary` | `List<Quantity>` | Quantities measured within this zone     |
+| Property                      | Type                                    | Description                                |
+|-------------------------------|-----------------------------------------|--------------------------------------------|
+| `conditionId`                 | `Guid`                                  | Unique condition identifier                |
+| `projectId`                   | `Guid`                                  | Project this condition belongs to          |
+| `quantities` (ProjectSummary) | `List<Quantity>`                        | Aggregated from documents                  |
+| `documentConditionQuantities` | `List<DocumentConditionQuantities>`     | Documents within the condition             |
 
-### 2.3 Page
+### 2.3 DocumentConditionQuantities (Document)
 
-| Property       | Type               | Description                              |
-|----------------|---------------------|------------------------------------------|
-| `id`           | `Guid`             | Unique page identifier                   |
-| `pageNumber`   | `int`              | Page number within the document          |
-| `pageSummary`  | `List<Quantity>`   | Aggregated quantities across zones on this page |
-| `takeoffZones` | `List<TakeoffZone>`| Zones on this page                       |
+| Property                      | Type                                | Description                         |
+|-------------------------------|-------------------------------------|-------------------------------------|
+| `documentId`                  | `Guid`                              | Unique document identifier          |
+| `quantities` (DocumentSummary)| `List<Quantity>`                    | Aggregated from pages               |
+| `pageConditionQuantities`     | `List<PageConditionQuantities>`     | Pages within the document           |
 
-### 2.4 Document
+### 2.4 PageConditionQuantities (Page)
 
-| Property          | Type            | Description                              |
-|-------------------|-----------------|------------------------------------------|
-| `id`              | `Guid`          | Unique document identifier               |
-| `documentSummary` | `List<Quantity>`| Aggregated quantities across all pages   |
-| `pages`           | `List<Page>`    | Pages within the document                |
+| Property                         | Type                                        | Description                       |
+|----------------------------------|--------------------------------------------|-----------------------------------|
+| `pageId`                         | `Guid`                                      | Unique page identifier            |
+| `pageNumber`                     | `int`                                       | Page number within the document   |
+| `quantities` (PageSummary)       | `List<Quantity>`                            | Aggregated from zones             |
+| `takeoffZoneConditionQuantities` | `List<TakeoffZoneConditionQuantities>`      | Zones on this page                |
 
-### 2.5 Condition
+### 2.5 TakeoffZoneConditionQuantities (Zone)
 
-| Property         | Type             | Description                              |
-|------------------|------------------|------------------------------------------|
-| `id`             | `Guid`           | Unique condition identifier              |
-| `projectId`      | `Guid`           | Project this condition belongs to        |
-| `projectSummary` | `List<Quantity>` | Aggregated quantities across documents   |
-| `documents`      | `List<Document>` | Documents within the condition           |
+| Property      | Type             | Description                    |
+|---------------|------------------|--------------------------------|
+| `takeoffZoneId` | `Guid`         | Unique zone identifier         |
+| `quantities`  | `List<Quantity>` | Raw quantities for this zone   |
 
 ### 2.6 Data Hierarchy
 
 ```
-Condition
-├── ProjectSummary (aggregated from documents)
-└── Documents[]
-    ├── DocumentSummary (aggregated from pages)
-    └── Pages[]
-        ├── PageSummary (aggregated from zones)
-        └── TakeoffZones[]
-            └── ZoneSummary (raw quantities)
+ProjectConditionQuantities (Condition)
+├── Quantities (ProjectSummary - computed by Takeoff)
+└── DocumentConditionQuantities[]
+    ├── Quantities (DocumentSummary - computed by Takeoff)
+    └── PageConditionQuantities[]
+        ├── Quantities (PageSummary - computed by Takeoff)
+        └── TakeoffZoneConditionQuantities[]
+            └── Quantities (ZoneSummary - raw data)
 ```
 
-### 2.7 Summary Aggregation Rules
+### 2.7 Summary Aggregation Rules (Takeoff Only)
 
-Summaries are computed bottom-up by Takeoff:
+Summaries are computed **bottom-up by Takeoff**:
 
-1. PageSummary = sum of all ZoneSummary quantities across zones on the page, grouped by (Name, Unit).
-2. DocumentSummary = sum of all PageSummary quantities across pages in the document, grouped by (Name, Unit).
-3. ProjectSummary = sum of all DocumentSummary quantities across documents in the condition, grouped by (Name, Unit).
+1. **PageSummary** = sum of all ZoneSummary quantities across zones, grouped by `(Name, Unit)`.
+2. **DocumentSummary** = sum of all PageSummary quantities across pages, grouped by `(Name, Unit)`.
+3. **ProjectSummary** = sum of all DocumentSummary quantities across documents, grouped by `(Name, Unit)`.
 
-Estimator never recomputes these summaries. It trusts the values provided by Takeoff.
+**Estimator trusts summaries from Takeoff and never recomputes them.**
 
 ---
 
 ## 3. Takeoff → Estimator Callbacks (Push)
 
-Takeoff sends notifications to Estimator whenever data changes. These are fire-and-forget calls — Takeoff does not wait for a successful response before returning to its own caller.
+### 3.1 Conditions Changed
 
-### 3.1 Condition Changed
+- **Method**: POST
+- **Path**: `/api/interactions/conditions-changed`
+- **Request Body**: `List<ProjectConditionQuantities>`
+- **Response**: `200 OK` with `List<ProjectConditionQuantities>`
 
-Sent when a condition is created or updated (including any changes to zones, pages, or documents within it).
+**KEY CHANGE**: Endpoint renamed from `/condition-changed` to `/conditions-changed`.
 
-- Method: POST
-- Path: `/api/interactions/condition-changed`
-- Request Body: `List<Condition>` — full condition objects with all summaries recomputed
-- Success Response: `200 OK` with `List<Condition>` — the merged result
+**Takeoff**:
+- Sends full condition on create.
+- Sends diff on update (only changed branches).
 
-Estimator behavior:
-- Insert new condition if absent.
-- Merge documents, pages, and zones by ID when condition exists.
-- Overwrite condition's ProjectSummary with the payload value.
+**Estimator**:
+- Inserts new condition if absent.
+- Merges documents, pages, zones by ID if condition exists.
+- **Always overwrites ProjectSummary** from callback.
 
-### 3.2 Condition Deleted
+---
 
-- Method: POST
-- Path: `/api/interactions/condition-deleted`
-- Request Body: `{ "projectId": Guid, "conditionId": Guid }`
-- Success Response: `204 No Content`
+### 3.2 Conditions Deleted
 
-Estimator behavior:
-- Delete the condition locally.
-- Pull a fresh snapshot of the project from Takeoff to ensure consistency.
+- **Method**: POST
+- **Path**: `/api/interactions/conditions-deleted`
+- **Request Body**: `{ "projectId": Guid, "conditionIds": List<Guid> }`
+- **Response**: `204 No Content`
 
-### 3.3 Document Deleted
+**KEY CHANGE**: 
+- Renamed from `/condition-deleted` to `/conditions-deleted`
+- **Now accepts lists of IDs** instead of single ID
+- **Estimator pulls snapshot after deletion**
 
-- Method: POST
-- Path: `/api/interactions/document-deleted`
-- Request Body: `{ "projectId": Guid, "documentId": Guid }`
-- Success Response: `204 No Content`
+**Estimator**:
+1. Delete all conditions locally.
+2. **Pull fresh project snapshot** from Takeoff.
+3. Return success.
 
-Estimator behavior:
-- Remove the document (by ID) from all conditions within the project.
-- Pull a fresh project snapshot from Takeoff.
+---
 
-### 3.4 Page Deleted
+### 3.3 Documents Deleted
 
-- Method: POST
-- Path: `/api/interactions/page-deleted`
-- Request Body: `{ "projectId": Guid, "pageId": Guid }`
-- Success Response: `204 No Content`
+- **Method**: POST
+- **Path**: `/api/interactions/documents-deleted`
+- **Request Body**: `{ "projectId": Guid, "documentIds": List<Guid> }`
+- **Response**: `204 No Content`
 
-Estimator behavior:
-- Remove the page (by ID) from all documents in all conditions within the project.
-- Pull a fresh project snapshot from Takeoff.
+**KEY CHANGE**:
+- Renamed from `/document-deleted` to `/documents-deleted`
+- **Now accepts list of document IDs**
+- **Estimator pulls snapshot after deletion**
 
-### 3.5 Takeoff Zone Deleted
+**Estimator**:
+1. Delete all documents locally.
+2. **Pull fresh project snapshot** from Takeoff to reconcile recalculated summaries.
+3. Return success.
 
-- Method: POST
-- Path: `/api/interactions/takeoffzone-deleted`
-- Request Body: `{ "projectId": Guid, "zoneId": Guid }`
-- Success Response: `204 No Content`
+---
 
-Estimator behavior:
-- Remove the zone (by ID) from all pages in all documents within the project.
-- Pull a fresh project snapshot from Takeoff.
+### 3.4 Pages Deleted
 
-### 3.6 Deletion Callback Notes
+- **Method**: POST
+- **Path**: `/api/interactions/pages-deleted`
+- **Request Body**: `{ "projectId": Guid, "pageIds": List<Guid> }`
+- **Response**: `204 No Content`
 
-- Deletion payloads are intentionally flat: only projectId and the target entity ID are required.
-- After handling a deletion locally, Estimator pulls the full project snapshot to get recalculated summaries.
+**KEY CHANGE**:
+- Renamed from `/page-deleted` to `/pages-deleted`
+- **Now accepts list of page IDs**
+- **Estimator pulls snapshot after deletion**
+
+**Estimator**:
+1. Delete all pages locally.
+2. **Pull fresh project snapshot** from Takeoff.
+3. Return success.
+
+---
+
+### 3.5 TakeoffZones Deleted
+
+- **Method**: POST
+- **Path**: `/api/interactions/takeoffzones-deleted`
+- **Request Body**: `{ "projectId": Guid, "zoneIds": List<Guid> }`
+- **Response**: `204 No Content`
+
+**KEY CHANGE**:
+- Renamed from `/takeoffzone-deleted` to `/takeoffzones-deleted`
+- **Now accepts list of zone IDs**
+- **Estimator pulls snapshot after deletion**
+
+**Estimator**:
+1. Delete all zones locally.
+2. **Pull fresh project snapshot** from Takeoff.
+3. Return success.
+
+---
+
+### 3.6 Project Deleted
+
+- **Method**: POST
+- **Path**: `/api/interactions/project-deleted`
+- **Request Body**: `{ "projectId": Guid }`
+- **Response**: `204 No Content`
+
+**NEW ENDPOINT**
+
+**Estimator**:
+- Delete the entire project locally.
+- **No snapshot pull** (entire project is removed).
+
+---
+
+### 3.7 Deletion Pattern: Automatic Snapshot Pull
+
+**After any deletion (except project deletion), Estimator**:
+
+1. Deletes the entity/entities locally
+2. **Immediately pulls the full project snapshot** from Takeoff
+3. Replaces all local data for that project with the fresh snapshot
+
+**Why**: Ensures parent summaries (Document, Page, Project) are recalculated correctly by Takeoff and match exactly.
 
 ---
 
 ## 4. Estimator → Takeoff (Pull)
 
-Estimator can query Takeoff's API to retrieve condition data.
-
 ### 4.1 Get Conditions for a Project
 
-- Method: GET
-- Path: `/api/interactions/projects/{projectId}/conditions`
-- Response: `200 OK` with `List<Condition>`
+- **Method**: GET
+- **Path**: `/api/interactions/projects/{projectId}/conditions-all`
+- **Response**: `200 OK` with `List<ProjectConditionQuantities>`
 
-Returns all conditions for the given project, with summaries already computed by Takeoff.
+Returns all conditions for a project with summaries computed by Takeoff.
+
+**Used by**: Post-deletion snapshot sync.
+
+---
+
+### 4.2 Get All Project IDs
+
+- **Method**: GET
+- **Path**: `/api/demo/projects`
+- **Response**: `200 OK` with `List<Guid>`
+
+Returns all project IDs from Takeoff.
+
+**EXCEPTION**: Only Demo API endpoint called by Estimator's pull flow.
 
 ---
 
 ## 5. Health Check
 
-Both services expose a health endpoint.
-
-- Method: GET
-- Path: `/api/interactions/health`
-- Response: `200 OK` with body `"ok"`
+- **Method**: GET
+- **Path**: `/api/interactions/health`
+- **Response**: `200 OK` with `"ok"`
 
 ---
 
 ## 6. Configuration
 
-Each service requires the base URL of the other service (configured under `PeerServices`).
-
-Takeoff configuration keys:
-- `EstimatorBaseUrl` (string): Base URL of Estimator service
-- `HttpTimeoutSeconds` (int): HTTP client timeout in seconds (default 10)
-
-Estimator configuration keys:
-- `TakeoffBaseUrl` (string): Base URL of Takeoff service
-- `HttpTimeoutSeconds` (int): HTTP client timeout in seconds (default 10)
+| Service | Key | Value |
+|---------|-----|-------|
+| Takeoff | `PeerServices:EstimatorBaseUrl` | `https://localhost:5002/` |
+| Takeoff | `PeerServices:HttpTimeoutSeconds` | `10` |
+| Estimator | `PeerServices:TakeoffBaseUrl` | `https://localhost:5001/` |
+| Estimator | `PeerServices:HttpTimeoutSeconds` | `10` |
 
 ---
 
 ## 7. Error Handling
 
-- Takeoff callbacks are fire-and-forget. If Estimator is unreachable, Takeoff logs a warning and continues.
-- Estimator's post-deletion snapshot pull is best-effort. If Takeoff is unreachable during the pull, Estimator logs the error but still returns the deletion response successfully.
-- All HTTP client errors are logged with structured logging (`ILogger`).
+- **Callbacks are fire-and-forget**: Takeoff logs warnings if Estimator unreachable.
+- **Post-deletion pulls are best-effort**: Estimator returns success regardless of pull outcome.
+- All errors logged with `ILogger`.
+
+---
+
+## 8. Summary of Key Changes
+
+| Feature | Previous | Current |
+|---------|----------|---------|
+| **Condition Changed** | `/condition-changed` | `/conditions-changed` |
+| **Condition Deleted** | `/condition-deleted` (single ID) | `/conditions-deleted` (**list of IDs**) |
+| **Document Deleted** | `/document-deleted` (single ID) | `/documents-deleted` (**list of IDs**) |
+| **Page Deleted** | `/page-deleted` (single ID) | `/pages-deleted` (**list of IDs**) |
+| **Zone Deleted** | `/takeoffzone-deleted` (single ID) | `/takeoffzones-deleted` (**list of IDs**) |
+| **Project Deleted** | ❌ Not defined | ✅ `/project-deleted` (**NEW**) |
+| **Post-Deletion Sync** | Not automatic | ✅ **Automatic snapshot pull** (except project deletion) |
