@@ -8,20 +8,20 @@ classDiagram
         -Guid conditionId
         -Guid projectId
         -List~Quantity~ quantities
-        -List~DocumentConditionQuantities~ documents
+        -List~DocumentConditionQuantities~ documentConditionQuantities
     }
     
     class DocumentConditionQuantities {
         -Guid documentId
         -List~Quantity~ quantities
-        -List~PageConditionQuantities~ pages
+        -List~PageConditionQuantities~ pageConditionQuantities
     }
     
     class PageConditionQuantities {
         -Guid pageId
         -int pageNumber
         -List~Quantity~ quantities
-        -List~TakeoffZoneConditionQuantities~ zones
+        -List~TakeoffZoneConditionQuantities~ takeoffZoneConditionQuantities
     }
     
     class TakeoffZoneConditionQuantities {
@@ -49,89 +49,72 @@ classDiagram
 
 ## 2. Integration Message Flows
 
-### 2.1 Condition Changed (Create/Update)
+### 2.1 Conditions Changed (Create/Update)
 
 ```mermaid
 sequenceDiagram
-    participant TakeoffUI as Takeoff UI
     participant TakeoffAPI as Takeoff API
     participant TakeoffStore as Takeoff Store
     participant EstimatorAPI as Estimator API
     participant EstimatorStore as Estimator Store
     
-    TakeoffUI->>TakeoffAPI: PUT /api/demo/conditions/{id}
     TakeoffAPI->>TakeoffStore: Update(condition)
     TakeoffStore->>TakeoffStore: ComputeSummaries()
     TakeoffStore-->>TakeoffAPI: Updated Condition
-    TakeoffAPI-->>TakeoffUI: 200 OK
     
-    Note over TakeoffAPI: Fire-and-forget
+    Note over TakeoffAPI: Fire-and-forget callback
     TakeoffAPI->>EstimatorAPI: POST /api/interactions/conditions-changed
-    TakeoffAPI-->>TakeoffUI: Return immediately
+    TakeoffAPI-->>TakeoffStore: Return immediately
     
     EstimatorAPI->>EstimatorStore: UpsertByCallback(conditions)
     EstimatorStore-->>EstimatorAPI: Merged result
-    EstimatorAPI-->>TakeoffAPI: 200 OK (async)
+    EstimatorAPI-->>TakeoffAPI: 200 OK
 ```
 
 ### 2.2 Deletion with Post-Deletion Snapshot Sync
 
 ```mermaid
 sequenceDiagram
-    participant TakeoffUI as Takeoff UI
     participant TakeoffAPI as Takeoff API
     participant TakeoffStore as Takeoff Store
     participant EstimatorAPI as Estimator API
     participant EstimatorStore as Estimator Store
     
-    TakeoffUI->>TakeoffAPI: DELETE /api/demo/zones/{id}
-    TakeoffAPI->>TakeoffStore: DeleteZone(zoneId)
+    TakeoffAPI->>TakeoffStore: DeleteEntity(entityId)
     TakeoffStore->>TakeoffStore: ComputeSummaries()
     TakeoffStore-->>TakeoffAPI: bool success
-    TakeoffAPI-->>TakeoffUI: 204 No Content
     
-    Note over TakeoffAPI: Fire-and-forget
-    TakeoffAPI->>EstimatorAPI: POST /api/interactions/takeoffzones-deleted
-    TakeoffAPI-->>TakeoffUI: Return immediately
+    Note over TakeoffAPI: Fire-and-forget callback
+    TakeoffAPI->>EstimatorAPI: POST /api/interactions/entities-deleted
+    TakeoffAPI-->>TakeoffStore: Return immediately
     
-    EstimatorAPI->>EstimatorStore: DeleteTakeoffZone(zoneId)
+    EstimatorAPI->>EstimatorStore: DeleteEntity(entityId)
     
     Note over EstimatorAPI: AUTOMATIC POST-DELETION SYNC
-    EstimatorAPI->>TakeoffAPI: GET /api/interactions/projects/{pid}/conditions
-    TakeoffAPI-->>EstimatorAPI: Fresh Conditions (with updated summaries)
-    EstimatorAPI->>EstimatorStore: ReplaceAll(conditions)
-    EstimatorAPI-->>TakeoffAPI: 204 No Content (async)
+    EstimatorAPI->>TakeoffAPI: GET /api/interactions/projects/{pid}/conditions-all
+    TakeoffAPI-->>EstimatorAPI: Fresh snapshot with updated summaries
+    EstimatorAPI->>EstimatorStore: ReplaceAll(snapshot)
+    EstimatorAPI-->>TakeoffAPI: 204 No Content
 ```
 
 ### 2.3 Pull Snapshot Flow
 
 ```mermaid
 sequenceDiagram
-    participant EstimatorUI as Estimator UI
     participant EstimatorAPI as Estimator API
     participant TakeoffAPI as Takeoff API
-    participant TakeoffStore as Takeoff Store
     
-    EstimatorUI->>EstimatorAPI: POST /api/demo/pull-snapshot
-    
-    Note over EstimatorAPI: Step 1: Get all project IDs
     EstimatorAPI->>TakeoffAPI: GET /api/demo/projects
-    TakeoffAPI->>TakeoffStore: GetProjectIds()
-    TakeoffStore-->>TakeoffAPI: List~Guid~
-    TakeoffAPI-->>EstimatorAPI: [projectId1, projectId2, ...]
+    TakeoffAPI-->>EstimatorAPI: List of project IDs
     
-    Note over EstimatorAPI: Step 2: Get conditions for each project
-    loop For each project ID
+    Note over EstimatorAPI: For each project ID
+    loop Project iteration
         EstimatorAPI->>TakeoffAPI: GET /api/interactions/projects/{pid}/conditions-all
-        TakeoffAPI->>TakeoffStore: GetAll(projectId)
-        TakeoffStore-->>TakeoffAPI: List~Condition~
-        TakeoffAPI-->>EstimatorAPI: [cond1, cond2, ...]
+        TakeoffAPI-->>EstimatorAPI: All conditions for project
         EstimatorAPI->>EstimatorAPI: Accumulate conditions
     end
     
-    EstimatorAPI->>EstimatorStore: ReplaceAllProjects(allConditions)
-    EstimatorStore-->>EstimatorAPI: Done
-    EstimatorAPI-->>EstimatorUI: 200 OK
+    EstimatorAPI->>EstimatorAPI: ReplaceAllProjects(allConditions)
 ```
 
 ---
@@ -165,59 +148,16 @@ sequenceDiagram
 
 ---
 
-## 4. Summary Aggregation Logic (Takeoff Only)
+## 4. Integration Patterns
 
-```mermaid
-graph TB
-    subgraph Input["Zone Data (Raw)"]
-        Z1["Zone 1<br/>Length: 100"]
-        Z2["Zone 2<br/>Length: 50"]
-    end
-    
-    subgraph Step1["Step 1: Zones → Page (Aggregate)"]
-        PS["PageSummary<br/>Length: 150<br/>(100 + 50)"]
-    end
-    
-    subgraph Step2["Step 2: Pages → Document (Aggregate)"]
-        P1["Page 1<br/>Length: 150"]
-        P2["Page 2<br/>Length: 75"]
-        DS["DocumentSummary<br/>Length: 225<br/>(150 + 75)"]
-    end
-    
-    subgraph Step3["Step 3: Documents → Condition (Aggregate)"]
-        D1["Doc 1<br/>Length: 225"]
-        D2["Doc 2<br/>Length: 100"]
-        COND["ProjectSummary<br/>Length: 325<br/>(225 + 100)"]
-    end
-    
-    Z1 --> PS
-    Z2 --> PS
-    PS --> Step2
-    P1 --> DS
-    P2 --> DS
-    DS --> Step3
-    D1 --> COND
-    D2 --> COND
-    
-    style Z1 fill:#f3e5f5
-    style Z2 fill:#f3e5f5
-    style PS fill:#fff3e0
-    style DS fill:#fff3e0
-    style COND fill:#e8f5e9
-```
-
----
-
-## 5. Key Integration Patterns
-
-### 5.1 Callback Pattern (Takeoff → Estimator)
+### 4.1 Callback Pattern (Takeoff → Estimator)
 
 ```mermaid
 graph LR
-    A["Takeoff<br/>Create/Update/Delete"] -->|Fire-and-forget<br/>POST| B["Estimator<br/>Callback Endpoint"]
-    B -->|Process<br/>Locally| C["Estimator<br/>Local Store"]
-    B -->|Post-Deletion:<br/>Pull Snapshot| D["Takeoff<br/>GET Snapshot"]
-    D -->|Fresh Data| E["Estimator<br/>Local Store<br/>Sync"]
+    A["Takeoff API<br/>Create/Update/Delete"] -->|Fire-and-forget<br/>POST| B["Estimator API<br/>Callback Endpoint"]
+    B -->|Process<br/>Locally| C["Estimator Store"]
+    B -->|Post-Deletion:<br/>Pull Snapshot| D["Takeoff API<br/>GET Snapshot"]
+    D -->|Fresh Data| E["Estimator Store<br/>Sync"]
     
     style A fill:#e3f2fd
     style B fill:#fff3e0
@@ -226,14 +166,14 @@ graph LR
     style E fill:#f3e5f5
 ```
 
-### 5.2 Pull Pattern (Estimator → Takeoff)
+### 4.2 Pull Pattern (Estimator → Takeoff)
 
 ```mermaid
 graph LR
-    A["Estimator<br/>On Demand"] -->|GET /api/demo/projects| B["Takeoff<br/>Project IDs"]
-    B -->|List of IDs| C["Estimator<br/>For Each ID"]
-    C -->|GET /api/interactions/projects/{id}/conditions| D["Takeoff<br/>Get Conditions"]
-    D -->|Full Snapshot| E["Estimator<br/>Local Store"]
+    A["Estimator API<br/>On Demand"] -->|GET /api/demo/projects| B["Takeoff API<br/>Project IDs"]
+    B -->|List of IDs| C["Estimator API<br/>For Each ID"]
+    C -->|GET /api/interactions/projects/{id}/conditions-all| D["Takeoff API<br/>Get Conditions"]
+    D -->|Full Conditions| E["Estimator Store"]
     
     style A fill:#e8f5e9
     style B fill:#e3f2fd
@@ -244,12 +184,10 @@ graph LR
 
 ---
 
-## 6. Endpoint Route Summary
+## 5. Endpoint Summary
 
-| Operation | From | To | Route | Method | Notes |
-|-----------|------|----|----|--------|-------|
-| **Change** | Takeoff | Estimator | `/api/interactions/conditions-changed` | POST | Full condition or diff |
-| **Batch Delete** | Takeoff | Estimator | `/api/interactions/{entities}-deleted` | POST | List of IDs in payload |
-| **Post-Delete Sync** | Estimator | Takeoff | `/api/interactions/projects/{id}/conditions-all` | GET | Automatic after deletion |
-| **Pull Snapshot** | Estimator | Takeoff | `/api/demo/projects` | GET | Step 1: get IDs |
-| **Pull Snapshot** | Estimator | Takeoff | `/api/interactions/projects/{id}/conditions-all` | GET | Step 2: get conditions |
+| Operation | From | To | Route | Method |
+|-----------|------|----|----|--------|
+| Conditions Changed | Takeoff | Estimator | `/api/interactions/conditions-changed` | POST |
+| Batch Delete Entities | Takeoff | Estimator | `/api/interactions/{entity}-deleted` | POST |
+| Get Conditions for Project | Estimator | Takeoff | `/api/interactions/projects/{id}/conditions-all` | GET |
