@@ -16,11 +16,16 @@ namespace Takeoff.Api.Services
             _logger = logger;
         }
 
-        public async Task SendConditionChangedAsync(List<Condition> conditions, CancellationToken ct = default)
+        /// <summary>
+        /// Sends a condition (or diff) to Estimator.
+        /// The Condition object acts as both full update and diff - 
+        /// it contains only the changed documents/pages/zones when used as a diff.
+        /// </summary>
+        public async Task SendConditionChangedAsync(Condition condition, CancellationToken ct = default)
         {
             try
             {
-                var res = await _client.PostAsJsonAsync("api/interactions/condition-changed", conditions, ct);
+                var res = await _client.PostAsJsonAsync("api/interactions/condition-changed", new List<Condition> { condition }, ct);
                 if (!res.IsSuccessStatusCode)
                 {
                     _logger.LogWarning("Estimator responded with {StatusCode} to condition-changed", res.StatusCode);

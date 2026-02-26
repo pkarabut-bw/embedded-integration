@@ -335,15 +335,8 @@
 
     // ── jQuery ready ───────────────────────────────────────
     $(function() {
-      refreshProjects();
-
-      $('#projectSelect').change(function() {
-        var v = $(this).val();
-        loadProject(v || null);
-      });
-
-      // Auto-select first project on startup - improved timing and error handling
-      setTimeout(function() {
+      refreshProjects().done(function() {
+        // Auto-select first project on startup after projects are loaded
         try {
           var $sel = $('#projectSelect');
           var firstOption = $sel.find('option').eq(1); // Skip placeholder at index 0
@@ -355,7 +348,12 @@
         } catch (e) {
           console.warn('Auto-select project failed:', e);
         }
-      }, 200);
+      });
+
+      $('#projectSelect').change(function() {
+        var v = $(this).val();
+        loadProject(v || null);
+      });
 
       // ── Tree selection → show form ──
       $('#takeoffTree').on('select_node.jstree', function(e, data) {

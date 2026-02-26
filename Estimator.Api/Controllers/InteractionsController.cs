@@ -18,7 +18,8 @@ namespace Estimator.Api.Controllers
         }
 
         /// <summary>
-        /// Accept a list of changed ConditionData items from Takeoff and apply them to Estimator state.
+        /// Accept a list of changed Conditions from Takeoff. Each Condition object may contain only
+        /// changed documents/pages/zones (as a diff) or full data for new conditions.
         /// </summary>
         [HttpPost("condition-changed")]
         public ActionResult<List<Condition>> ConditionChanged([FromBody] List<Condition> conditions)

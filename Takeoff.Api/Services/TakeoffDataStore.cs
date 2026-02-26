@@ -343,6 +343,15 @@ namespace Takeoff.Api.Services
             }).ToList();
         }
 
+        /// <summary>
+        /// Public wrapper to compute summaries on a condition.
+        /// Used before computing diff to ensure summaries are correct.
+        /// </summary>
+        public void ComputeSummariesPublic(Condition condition)
+        {
+            ComputeSummaries(condition);
+        }
+
         private List<Document> CloneDocuments(List<Document> documents)
         {
             return documents.Select(d => new Document
@@ -541,6 +550,141 @@ namespace Takeoff.Api.Services
             {
                 return _data.Keys.ToList();
             }
+        }
+
+        /// <summary>
+        /// Computes the differential update by comparing a new condition with the existing one.
+        /// Only includes changed documents/pages/zones.
+        /// </summary>
+        public Condition ComputeDiff(Condition newCondition, Guid projectId, Guid conditionId)
+        {
+            lock (_gate)
+            {
+                if (!_data.TryGetValue(projectId, out var list)) 
+                    return Clone(newCondition); // New project, return full condition
+
+                var existingCondition = list.FirstOrDefault(x => x.Id == conditionId);
+                
+                // If no existing condition, return full new condition
+                if (existingCondition == null)
+                    return Clone(newCondition);
+
+                // Compute diff by comparing structures
+                var diff = new Condition
+                {
+                    Id = newCondition.Id,
+                    ProjectId = newCondition.ProjectId,
+                    ProjectSummary = Clone(newCondition.ProjectSummary),
+                    Documents = new List<Document>()
+                };
+
+                // Find changed documents
+                var existingDocMap = new Dictionary<Guid, Document>();
+                foreach (var existingDoc in existingCondition.Documents ?? new List<Document>())
+                {
+                    existingDocMap[existingDoc.Id] = existingDoc;
+                }
+
+                foreach (var newDoc in newCondition.Documents ?? new List<Document>())
+                {
+                    var existingDoc = existingDocMap.ContainsKey(newDoc.Id) ? existingDocMap[newDoc.Id] : null;
+                    var changedPages = new List<Page>();
+
+                    // Find changed pages within this document
+                    var existingPageMap = new Dictionary<Guid, Page>();
+                    if (existingDoc != null)
+                    {
+                        foreach (var existingPage in existingDoc.Pages ?? new List<Page>())
+                        {
+                            existingPageMap[existingPage.Id] = existingPage;
+                        }
+                    }
+
+                    foreach (var newPage in newDoc.Pages ?? new List<Page>())
+                    {
+                        var existingPage = existingPageMap.ContainsKey(newPage.Id) ? existingPageMap[newPage.Id] : null;
+                        var changedZones = new List<TakeoffZone>();
+
+                        // Find changed zones within this page
+                        var existingZoneMap = new Dictionary<Guid, TakeoffZone>();
+                        if (existingPage != null)
+                        {
+                            foreach (var existingZone in existingPage.TakeoffZones ?? new List<TakeoffZone>())
+                            {
+                                existingZoneMap[existingZone.Id] = existingZone;
+                            }
+                        }
+
+                        foreach (var newZone in newPage.TakeoffZones ?? new List<TakeoffZone>())
+                        {
+                            var existingZone = existingZoneMap.ContainsKey(newZone.Id) ? existingZoneMap[newZone.Id] : null;
+                            
+                            // Check if zone summary changed
+                            if (existingZone == null || !QuantitiesEqual(newZone.ZoneSummary, existingZone.ZoneSummary))
+                            {
+                                changedZones.Add(new TakeoffZone
+                                {
+                                    Id = newZone.Id,
+                                    ZoneSummary = Clone(newZone.ZoneSummary)
+                                });
+                            }
+                        }
+
+                        // Include page only if it has changed zones or is new
+                        if (changedZones.Any() || existingPage == null || !QuantitiesEqual(newPage.PageSummary, existingPage.PageSummary))
+                        {
+                            changedPages.Add(new Page
+                            {
+                                Id = newPage.Id,
+                                PageNumber = newPage.PageNumber,
+                                PageSummary = Clone(newPage.PageSummary),
+                                TakeoffZones = changedZones
+                            });
+                        }
+                    }
+
+                    // Include document only if it has changed pages or is new
+                    if (changedPages.Any() || existingDoc == null || !QuantitiesEqual(newDoc.DocumentSummary, existingDoc.DocumentSummary))
+                    {
+                        diff.Documents.Add(new Document
+                        {
+                            Id = newDoc.Id,
+                            DocumentSummary = Clone(newDoc.DocumentSummary),
+                            Pages = changedPages
+                        });
+                    }
+                }
+
+                return diff;
+            }
+        }
+
+        private static bool QuantitiesEqual(List<Quantity>? list1, List<Quantity>? list2)
+        {
+            if (list1 == null && list2 == null) return true;
+            if (list1 == null || list2 == null) return false;
+            if (list1.Count != list2.Count) return false;
+
+            var sorted1 = list1.OrderBy(q => q.Name).ThenBy(q => q.Unit).ToList();
+            var sorted2 = list2.OrderBy(q => q.Name).ThenBy(q => q.Unit).ToList();
+
+            for (int i = 0; i < sorted1.Count; i++)
+            {
+                var q1 = sorted1[i];
+                var q2 = sorted2[i];
+                if (q1.Name != q2.Name || q1.Unit != q2.Unit || !q1.Value.Equals(q2.Value))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static List<Quantity> Clone(List<Quantity>? quantities)
+        {
+            if (quantities == null) return new();
+            return quantities.Select(q => new Quantity { Name = q.Name, Unit = q.Unit, Value = q.Value }).ToList();
         }
 
         private static Condition Clone(Condition src)

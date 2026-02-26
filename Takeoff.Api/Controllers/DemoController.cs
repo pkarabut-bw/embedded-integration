@@ -78,8 +78,8 @@ namespace Takeoff.Api.Controllers
             if (condition.Id == Guid.Empty) condition.Id = Guid.NewGuid();
 
             var created = _store.Add(condition);
-            // fire-and-forget notification to Estimator
-            _ = _client.SendConditionChangedAsync(new List<Condition> { created });
+            // Fire-and-forget notification to Estimator (new conditions send full data)
+            _ = _client.SendConditionChangedAsync(created);
             return Ok(created);
         }
 
@@ -88,9 +88,17 @@ namespace Takeoff.Api.Controllers
         {
             if (conditionId != condition.Id) condition.Id = conditionId;
 
+            // Compute summaries on the incoming condition BEFORE computing diff
+            _store.ComputeSummariesPublic(condition);
+            
+            // Compute diff BEFORE updating the store (compare new with existing)
+            var diff = _store.ComputeDiff(condition, condition.ProjectId, condition.Id);
+            
+            // Now update the store with the condition that has computed summaries
             var updated = _store.Update(condition);
-            // fire-and-forget notification to Estimator
-            _ = _client.SendConditionChangedAsync(new List<Condition> { updated });
+            
+            // Send the diff that was computed before the update
+            _ = _client.SendConditionChangedAsync(diff);
             return Ok(updated);
         }
 
