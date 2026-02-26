@@ -53,68 +53,59 @@ classDiagram
 
 ```mermaid
 sequenceDiagram
-    participant TakeoffAPI as Takeoff API
-    participant TakeoffStore as Takeoff Store
-    participant EstimatorAPI as Estimator API
-    participant EstimatorStore as Estimator Store
+    participant Takeoff
+    participant Estimator
     
-    TakeoffAPI->>TakeoffStore: Update(condition)
-    TakeoffStore->>TakeoffStore: ComputeSummaries()
-    TakeoffStore-->>TakeoffAPI: Updated Condition
+    Takeoff->>Takeoff: Update condition
+    Takeoff->>Takeoff: CalculateQuantitiesSummaries()
     
-    Note over TakeoffAPI: Fire-and-forget callback
-    TakeoffAPI->>EstimatorAPI: POST /api/interactions/conditions-changed
-    TakeoffAPI-->>TakeoffStore: Return immediately
+    Note over Takeoff: Fire-and-forget callback
+    Takeoff->>Estimator: POST /api/interactions/conditions-changed
+    Takeoff-->>Takeoff: Return immediately
     
-    EstimatorAPI->>EstimatorStore: UpsertByCallback(conditions)
-    EstimatorStore-->>EstimatorAPI: Merged result
-    EstimatorAPI-->>TakeoffAPI: 200 OK
+    Estimator->>Estimator: UpsertByCallback(conditions)
+    Estimator-->>Takeoff: 200 OK
 ```
 
 ### 2.2 Deletion with Post-Deletion Snapshot Sync
 
 ```mermaid
 sequenceDiagram
-    participant TakeoffAPI as Takeoff API
-    participant TakeoffStore as Takeoff Store
-    participant EstimatorAPI as Estimator API
-    participant EstimatorStore as Estimator Store
+    participant Takeoff
+    participant Estimator
     
-    TakeoffAPI->>TakeoffStore: DeleteEntity(entityId)
-    TakeoffStore->>TakeoffStore: ComputeSummaries()
-    TakeoffStore-->>TakeoffAPI: bool success
+    Takeoff->>Takeoff: DeleteEntity(entityId)
     
-    Note over TakeoffAPI: Fire-and-forget callback
-    TakeoffAPI->>EstimatorAPI: POST /api/interactions/entities-deleted
-    TakeoffAPI-->>TakeoffStore: Return immediately
+    Note over Takeoff: Fire-and-forget callback
+    Takeoff->>Estimator: POST /api/interactions/entities-deleted
+    Takeoff-->>Takeoff: Return immediately
     
-    EstimatorAPI->>EstimatorStore: DeleteEntity(entityId)
+    Estimator->>Estimator: DeleteEntity(entityId)
     
-    Note over EstimatorAPI: AUTOMATIC POST-DELETION SYNC
-    EstimatorAPI->>TakeoffAPI: GET /api/interactions/projects/{pid}/conditions-all
-    TakeoffAPI-->>EstimatorAPI: Fresh snapshot with updated summaries
-    EstimatorAPI->>EstimatorStore: ReplaceAll(snapshot)
-    EstimatorAPI-->>TakeoffAPI: 204 No Content
+    Note over Estimator: AUTOMATIC POST-DELETION SYNC
+    Estimator->>Takeoff: GET /api/interactions/projects/{pid}/conditions-all
+    Takeoff-->>Estimator: Fresh snapshot with updated summaries
+    Estimator->>Estimator: ReplaceAll(snapshot)
+    Estimator-->>Takeoff: 204 No Content
 ```
 
 ### 2.3 Pull Snapshot Flow
 
 ```mermaid
 sequenceDiagram
-    participant EstimatorAPI as Estimator API
-    participant TakeoffAPI as Takeoff API
+    participant Estimator
+    participant Takeoff
     
-    EstimatorAPI->>TakeoffAPI: GET /api/demo/projects
-    TakeoffAPI-->>EstimatorAPI: List of project IDs
+    Estimator->>Takeoff: Get all project IDs
+    Takeoff-->>Estimator: List of project IDs
     
-    Note over EstimatorAPI: For each project ID
-    loop Project iteration
-        EstimatorAPI->>TakeoffAPI: GET /api/interactions/projects/{pid}/conditions-all
-        TakeoffAPI-->>EstimatorAPI: All conditions for project
-        EstimatorAPI->>EstimatorAPI: Accumulate conditions
+    Note over Estimator: For each project ID
+    loop For each project
+        Estimator->>Takeoff: GET /api/interactions/projects/{pid}/conditions-all
+        Takeoff-->>Estimator: All conditions for project
     end
     
-    EstimatorAPI->>EstimatorAPI: ReplaceAllProjects(allConditions)
+    Estimator->>Estimator: Accumulate and store all conditions
 ```
 
 ---
@@ -123,27 +114,24 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant TakeoffAPI as Takeoff API
-    participant TakeoffStore as Takeoff Store
-    participant EstimatorAPI as Estimator API
-    participant EstimatorStore as Estimator Store
+    participant Takeoff
+    participant Estimator
     
-    TakeoffAPI->>TakeoffStore: DeleteMultiple([id1, id2, id3])
-    TakeoffStore->>TakeoffStore: For each: Remove by ID
-    TakeoffStore->>TakeoffStore: ComputeSummaries()
-    TakeoffStore-->>TakeoffAPI: bool success
+    Takeoff->>Takeoff: DeleteMultiple([id1, id2, id3])
+    Takeoff->>Takeoff: ComputeSummaries()
     
-    Note over TakeoffAPI: Fire-and-forget callback with list of IDs
-    TakeoffAPI->>EstimatorAPI: POST /api/interactions/entities-deleted<br/>Body: {projectId, entityIds: [id1, id2, id3]}
-    TakeoffAPI-->>TakeoffStore: Return immediately
+    Note over Takeoff: Fire-and-forget callback with list of IDs
+    Takeoff->>Estimator: POST /api/interactions/entities-deleted
+    Takeoff->>Estimator: Body: {projectId, entityIds: [id1, id2, id3]}
+    Takeoff-->>Takeoff: Return immediately
     
-    EstimatorAPI->>EstimatorStore: For each ID: DeleteEntity(id)
+    Estimator->>Estimator: For each ID: DeleteEntity(id)
     
-    Note over EstimatorAPI: AUTOMATIC SNAPSHOT PULL
-    EstimatorAPI->>TakeoffAPI: GET /api/interactions/projects/{pid}/conditions-all
-    TakeoffAPI-->>EstimatorAPI: Fresh snapshot
-    EstimatorAPI->>EstimatorStore: ReplaceAll(snapshot)
-    EstimatorAPI-->>TakeoffAPI: 204 No Content
+    Note over Estimator: AUTOMATIC SNAPSHOT PULL
+    Estimator->>Takeoff: GET /api/interactions/projects/{pid}/conditions-all
+    Takeoff-->>Estimator: Fresh snapshot
+    Estimator->>Estimator: ReplaceAll(snapshot)
+    Estimator-->>Takeoff: 204 No Content
 ```
 
 ---
@@ -154,10 +142,10 @@ sequenceDiagram
 
 ```mermaid
 graph LR
-    A["Takeoff API<br/>Create/Update/Delete"] -->|Fire-and-forget<br/>POST| B["Estimator API<br/>Callback Endpoint"]
-    B -->|Process<br/>Locally| C["Estimator Store"]
-    B -->|Post-Deletion:<br/>Pull Snapshot| D["Takeoff API<br/>GET Snapshot"]
-    D -->|Fresh Data| E["Estimator Store<br/>Sync"]
+    A["Takeoff<br/>Create/Update/Delete"] -->|Fire-and-forget<br/>POST| B["Estimator<br/>Callback Endpoint"]
+    B -->|Process<br/>Locally| C["Estimator<br/>Local Store"]
+    B -->|Post-Deletion:<br/>Pull Snapshot| D["Takeoff<br/>GET Snapshot"]
+    D -->|Fresh Data| E["Estimator<br/>Sync"]
     
     style A fill:#e3f2fd
     style B fill:#fff3e0
@@ -170,16 +158,14 @@ graph LR
 
 ```mermaid
 graph LR
-    A["Estimator API<br/>On Demand"] -->|GET /api/demo/projects| B["Takeoff API<br/>Project IDs"]
-    B -->|List of IDs| C["Estimator API<br/>For Each ID"]
-    C -->|GET /api/interactions/projects/{id}/conditions-all| D["Takeoff API<br/>Get Conditions"]
-    D -->|Full Conditions| E["Estimator Store"]
+    A["Estimator<br/>Pull Snapshot"] -->|Step 1| B["Takeoff<br/>Get Project IDs"]
+    B -->|Step 2<br/>For each ID| C["Takeoff<br/>Get Conditions"]
+    C -->|Accumulate| D["Estimator<br/>Local Store"]
     
     style A fill:#e8f5e9
     style B fill:#e3f2fd
-    style C fill:#fff3e0
-    style D fill:#e3f2fd
-    style E fill:#f3e5f5
+    style C fill:#e3f2fd
+    style D fill:#f3e5f5
 ```
 
 ---
