@@ -152,14 +152,12 @@ graph LR
 
 ```mermaid
 graph LR
-    A["Estimator<br/>Pull Snapshot"] -->|Step 1| B["Takeoff<br/>Get Project IDs"]
-    B -->|Step 2<br/>For each ID| C["Takeoff<br/>Get Conditions"]
-    C -->|Accumulate| D["Estimator<br/>Local Store"]
+    A["Estimator<br/>Pull Snapshot"] -->|GET| B["Takeoff<br/>Get Conditions"]
+    B -->|Store| C["Estimator<br/>Local Store"]
     
     style A fill:#e8f5e9
     style B fill:#e3f2fd
-    style C fill:#e3f2fd
-    style D fill:#f3e5f5
+    style C fill:#f3e5f5
 ```
 
 ---
