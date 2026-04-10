@@ -65,15 +65,15 @@ All data exchanged between the services uses the following contract types, defin
 
 ### 2.6 Data Hierarchy
 
-```
+```text
 ProjectConditionQuantities
-??? Quantities (computed by Takeoff)
-??? DocumentConditionQuantities[]
-    ??? Quantities (computed by Takeoff)
-    ??? PageConditionQuantities[]
-        ??? Quantities (computed by Takeoff)
-        ??? TakeoffZoneConditionQuantities[]
-            ??? Quantities (raw data)
++-- Quantities (computed by Takeoff)
++-- DocumentConditionQuantities[]
+    +-- Quantities (computed by Takeoff)
+    +-- PageConditionQuantities[]
+        +-- Quantities (computed by Takeoff)
+        +-- TakeoffZoneConditionQuantities[]
+            +-- Quantities (raw data)
 ```
 
 ### 2.7 CallbackType (Enum)
