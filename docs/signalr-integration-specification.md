@@ -222,7 +222,7 @@ classDiagram
 graph TB
     subgraph Estimator
         Hub["SignalR Hub"]
-        EApi["Estimator API"]
+        EApi["Estimator"]
         EStore["Local Data Store"]
     end
 
